@@ -1,4 +1,5 @@
 use crate::*;
+use super::*;
 
 pub struct Sma<T> {
     source: T,
@@ -13,7 +14,6 @@ impl<T> Sma<T> {
         }
     }
 }
-
 
 impl<T> Indicator<f64> for Sma<T>
 where
@@ -30,24 +30,27 @@ where
     }
 }
 
+use std::cell::RefCell;
 use std::mem::drop;
 use std::os::raw::*;
 use std::ptr;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 macro_rules! define_sma_methods {
     ($t:ty, $new:ident, $value:ident, $destroy:ident) => {
         #[no_mangle]
         // ここどうするんだ？？？
-        pub unsafe extern "C" fn $new(array: *const $t, length: c_int) -> *mut Rc<RefCell<Sma<$t>>> {
-            let array: &[$t] = std::slice::from_raw_parts(array, length as usize);
-            let obj = Box::new(Rc::new(RefCell::new(array.to_sma())));
+        pub unsafe extern "C" fn $new(
+            source: *mut Rc<RefCell<dyn Indicator<$t>>>,
+            period: c_int,
+        ) -> *mut Rc<RefCell<Sma<Rc<RefCell<dyn Indicator<$t>>>>>> {
+            let source = (*Box::from_raw(source)).clone();
+            let obj = Box::new(Rc::new(RefCell::new(Sma::new(source, period as usize))));
             Box::into_raw(obj)
         }
 
         #[no_mangle]
-        pub unsafe extern "C" fn $destroy(obj: *mut Rc<RefCell<Sma<$t>>>) {
+        pub unsafe extern "C" fn $destroy(obj: *mut Rc<RefCell<Sma<Rc<RefCell<dyn Indicator<$t>>>>>>) {
             if obj.is_null() {
                 return;
             }
@@ -55,15 +58,15 @@ macro_rules! define_sma_methods {
             drop(boxed);
         }
 
-        #[no_mangle]
-        pub unsafe extern "C" fn $value(sma: *mut Rc<RefCell<Sma<$t>>>, i: c_int) -> COption<$t> {
-            if sma.is_null() {
-                return COption::none();
-            }
+        // #[no_mangle]
+        // pub unsafe extern "C" fn $value(sma: *mut Rc<RefCell<Sma<Rc<RefCell<dyn Indicator<$t>>>>>>, i: c_int) -> COption<$t> {
+        //     if sma.is_null() {
+        //         return COption::none();
+        //     }
 
-            let sma = &*sma;
-            COption::from_option(sma.borrow().value(i as isize))
-        }
+        //     let sma = &*sma;
+        //     COption::from_option(sma.borrow().value(i as isize))
+        // }
     };
 }
 

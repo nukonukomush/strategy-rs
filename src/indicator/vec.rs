@@ -19,7 +19,6 @@ where
 }
 
 use std::mem::drop;
-// use std::os::raw::{c_double, c_int};
 use std::os::raw::*;
 use std::ptr;
 
@@ -27,7 +26,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 macro_rules! define_vec_methods {
-    ($t:ty, $new:ident, $value:ident, $destroy:ident) => {
+    ($t:ty, $new:ident, $trait:ident, $destroy:ident) => {
         #[no_mangle]
         pub unsafe extern "C" fn $new(array: *const $t, length: c_int) -> *mut Rc<RefCell<Vec<$t>>> {
             let array: &[$t] = std::slice::from_raw_parts(array, length as usize);
@@ -36,27 +35,26 @@ macro_rules! define_vec_methods {
         }
 
         #[no_mangle]
+        pub unsafe extern "C" fn $trait(obj: *mut Rc<RefCell<Vec<$t>>>) -> *mut Rc<RefCell<dyn Indicator<$t>>> {
+            if obj.is_null() {
+                return ptr::null_mut();
+            }
+            Box::into_raw(Box::new((*obj).clone() as Rc<RefCell<dyn Indicator<$t>>>))
+        }
+
+        #[no_mangle]
         pub unsafe extern "C" fn $destroy(obj: *mut Rc<RefCell<Vec<$t>>>) {
             if obj.is_null() {
                 return;
             }
+            // ここ Box にする必要ある？？
             let boxed = Box::from_raw(obj);
             drop(boxed);
-        }
-
-        #[no_mangle]
-        pub unsafe extern "C" fn $value(vec: *mut Rc<RefCell<Vec<$t>>>, i: c_int) -> COption<$t> {
-            if vec.is_null() {
-                return COption::none();
-            }
-
-            let vec = &*vec;
-            COption::from_option(vec.borrow().value(i as isize))
         }
     };
 }
 
-define_vec_methods!(f64, vec_new_f64, vec_value_f64, vec_destroy_f64);
+define_vec_methods!(f64, vec_new_f64, vec_trait_f64, vec_destroy_f64);
 
 #[cfg(test)]
 mod tests {

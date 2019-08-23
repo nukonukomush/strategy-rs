@@ -56,27 +56,36 @@ def Option(T):
     else:
         pass
 
+getattr(mydll, "indicator_value_{}".format("f64")).argtypes = [c_void_p, c_int]
+getattr(mydll, "indicator_value_{}".format("f64")).restype = Option(c_double)
+getattr(mydll, "indicator_destroy_{}".format("f64")).argtypes = [c_void_p]
+getattr(mydll, "indicator_destroy_{}".format("f64")).restype = None
+
 class Vec:
     for T, t_str in type_map.items():
         getattr(mydll, "vec_new_{}".format(t_str)).argtypes = [POINTER(T), c_int]
         getattr(mydll, "vec_new_{}".format(t_str)).restype = c_void_p
+        getattr(mydll, "vec_trait_{}".format(t_str)).argtypes = [c_void_p]
+        getattr(mydll, "vec_trait_{}".format(t_str)).restype = c_void_p
         getattr(mydll, "vec_destroy_{}".format(t_str)).argtypes = [c_void_p]
         getattr(mydll, "vec_destroy_{}".format(t_str)).restype = None
-        getattr(mydll, "vec_value_{}".format(t_str)).argtypes = [c_void_p, c_int]
-        getattr(mydll, "vec_value_{}".format(t_str)).restype = Option(T)
 
     def __init__(self, T, vec):
         self.T = T
         length = len(vec)
         arr = (T * length)(*vec)
         ptr = POINTER(T)(arr)
-        self.ptr = getattr(mydll, "vec_new_{}".format(get_rust_type(self.T)))(ptr, length)
+        self.b_ptr = getattr(mydll, "vec_new_{}".format(get_rust_type(self.T)))(ptr, length)
+        # dyn にしないで、struct にしてみる？
+        self.t_ptr = getattr(mydll, "vec_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
 
     def value(self, i):
-        return getattr(mydll, "vec_value_{}".format(get_rust_type(self.T)))(self.ptr, i)
+        return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.t_ptr, i)
 
     def __del__(self):
-        getattr(mydll, "vec_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
-        self.ptr = None
+        getattr(mydll, "vec_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
+        self.b_ptr = None
+        getattr(mydll, "indicator_destroy_{}".format(get_rust_type(self.T)))(self.t_ptr)
+        self.t_ptr = None
 
 
