@@ -22,24 +22,29 @@ use std::mem::drop;
 use std::os::raw::*;
 use std::ptr;
 
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 macro_rules! define_vec_methods {
     ($t:ty, $new:ident, $trait:ident, $destroy:ident) => {
         #[no_mangle]
-        pub unsafe extern "C" fn $new(array: *const $t, length: c_int) -> *mut Rc<RefCell<Vec<$t>>> {
+        pub unsafe extern "C" fn $new(
+            array: *const $t,
+            length: c_int,
+        ) -> *mut Rc<RefCell<Vec<$t>>> {
             let array: &[$t] = std::slice::from_raw_parts(array, length as usize);
             let obj = Box::new(Rc::new(RefCell::new(array.to_vec())));
             Box::into_raw(obj)
         }
 
         #[no_mangle]
-        pub unsafe extern "C" fn $trait(obj: *mut Rc<RefCell<Vec<$t>>>) -> *mut Rc<RefCell<dyn Indicator<$t>>> {
+        pub unsafe extern "C" fn $trait(
+            obj: *mut Rc<RefCell<Vec<$t>>>,
+        ) -> *mut IndicatorPtr<$t> {
             if obj.is_null() {
                 return ptr::null_mut();
             }
-            Box::into_raw(Box::new((*obj).clone() as Rc<RefCell<dyn Indicator<$t>>>))
+            Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
         }
 
         #[no_mangle]

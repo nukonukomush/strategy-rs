@@ -1,5 +1,5 @@
-use crate::*;
 use super::*;
+use crate::*;
 
 pub struct Sma<T> {
     source: T,
@@ -37,40 +37,41 @@ use std::ptr;
 use std::rc::Rc;
 
 macro_rules! define_sma_methods {
-    ($t:ty, $new:ident, $value:ident, $destroy:ident) => {
+    ($t:ty, $new:ident, $trait:ident, $destroy:ident) => {
         #[no_mangle]
-        // ここどうするんだ？？？
         pub unsafe extern "C" fn $new(
-            source: *mut Rc<RefCell<dyn Indicator<$t>>>,
+            source: *mut IndicatorPtr<$t>,
             period: c_int,
-        ) -> *mut Rc<RefCell<Sma<Rc<RefCell<dyn Indicator<$t>>>>>> {
-            let source = (*Box::from_raw(source)).clone();
-            let obj = Box::new(Rc::new(RefCell::new(Sma::new(source, period as usize))));
-            Box::into_raw(obj)
+        ) -> *mut Rc<RefCell<Sma<IndicatorPtr<$t>>>> {
+            let source = (*source).clone();
+            let sma = Rc::new(RefCell::new(Sma::new(source, period as usize)));
+            Box::into_raw(Box::new(sma))
         }
 
         #[no_mangle]
-        pub unsafe extern "C" fn $destroy(obj: *mut Rc<RefCell<Sma<Rc<RefCell<dyn Indicator<$t>>>>>>) {
+        pub unsafe extern "C" fn $trait(
+            obj: *mut Rc<RefCell<Sma<IndicatorPtr<$t>>>>,
+        ) -> *mut IndicatorPtr<$t> {
+            if obj.is_null() {
+                return ptr::null_mut();
+            }
+            Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
+        }
+
+        #[no_mangle]
+        pub unsafe extern "C" fn $destroy(
+            obj: *mut Rc<RefCell<Sma<IndicatorPtr<$t>>>>,
+        ) {
             if obj.is_null() {
                 return;
             }
             let boxed = Box::from_raw(obj);
             drop(boxed);
         }
-
-        // #[no_mangle]
-        // pub unsafe extern "C" fn $value(sma: *mut Rc<RefCell<Sma<Rc<RefCell<dyn Indicator<$t>>>>>>, i: c_int) -> COption<$t> {
-        //     if sma.is_null() {
-        //         return COption::none();
-        //     }
-
-        //     let sma = &*sma;
-        //     COption::from_option(sma.borrow().value(i as isize))
-        // }
     };
 }
 
-define_sma_methods!(f64, sma_new_f64, sma_value_f64, sma_destroy_f64);
+define_sma_methods!(f64, sma_new_f64, sma_trait_f64, sma_destroy_f64);
 
 #[cfg(test)]
 mod tests {

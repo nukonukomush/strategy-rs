@@ -76,7 +76,6 @@ class Vec:
         arr = (T * length)(*vec)
         ptr = POINTER(T)(arr)
         self.b_ptr = getattr(mydll, "vec_new_{}".format(get_rust_type(self.T)))(ptr, length)
-        # dyn にしないで、struct にしてみる？
         self.t_ptr = getattr(mydll, "vec_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
 
     def value(self, i):
@@ -88,4 +87,26 @@ class Vec:
         getattr(mydll, "indicator_destroy_{}".format(get_rust_type(self.T)))(self.t_ptr)
         self.t_ptr = None
 
+class Sma:
+    for T, t_str in type_map.items():
+        getattr(mydll, "sma_new_{}".format(t_str)).argtypes = [c_void_p, c_int]
+        getattr(mydll, "sma_new_{}".format(t_str)).restype = c_void_p
+        getattr(mydll, "sma_trait_{}".format(t_str)).argtypes = [c_void_p]
+        getattr(mydll, "sma_trait_{}".format(t_str)).restype = c_void_p
+        getattr(mydll, "sma_destroy_{}".format(t_str)).argtypes = [c_void_p]
+        getattr(mydll, "sma_destroy_{}".format(t_str)).restype = None
+
+    def __init__(self, T, source, period):
+        self.T = T
+        self.b_ptr = getattr(mydll, "sma_new_{}".format(get_rust_type(self.T)))(source.t_ptr, period)
+        self.t_ptr = getattr(mydll, "sma_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
+
+    def value(self, i):
+        return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.t_ptr, i)
+
+    def __del__(self):
+        getattr(mydll, "sma_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
+        self.b_ptr = None
+        getattr(mydll, "indicator_destroy_{}".format(get_rust_type(self.T)))(self.t_ptr)
+        self.t_ptr = None
 

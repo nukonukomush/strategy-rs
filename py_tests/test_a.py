@@ -38,4 +38,19 @@ def test_vec():
 
     assert result == expect
 
+def test_sma():
+    source = [1, 2, 3, 4, 5]
+    expect = [
+        ffi.Option(c_double).none(),
+        ffi.Option(c_double).none(),
+        ffi.Option(c_double).some(2),
+        ffi.Option(c_double).some(3),
+        ffi.Option(c_double).some(4),
+        ffi.Option(c_double).none(),
+    ]
 
+    vec = ffi.Vec(c_double, source)
+    sma = ffi.Sma(c_double, vec, 3)
+    result = [sma.value(i) for i in range(0, 6)]
+
+    assert result == expect
