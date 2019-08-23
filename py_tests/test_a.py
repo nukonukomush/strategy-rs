@@ -21,24 +21,16 @@ data_1 = {
     },
 }
 
-# class Vec:
-#     def __init__(self, vec):
-#         self.vec = vec
 
-#     def value(self, i):
-#         return self.vec[i]
-
-
-
-def test_2():
+def test_vec():
     source = [1, 2, 3, 4, 5]
     expect = [
-        ffi.Option.some(1),
-        ffi.Option.some(2),
-        ffi.Option.some(3),
-        ffi.Option.some(4),
-        ffi.Option.some(5),
-        ffi.Option.none(),
+        ffi.Option(c_double).some(1),
+        ffi.Option(c_double).some(2),
+        ffi.Option(c_double).some(3),
+        ffi.Option(c_double).some(4),
+        ffi.Option(c_double).some(5),
+        ffi.Option(c_double).none(),
      ]
 
     vec = ffi.Vec(c_double, source)
@@ -46,7 +38,4 @@ def test_2():
 
     assert result == expect
 
-
-def test_1():
-    assert ffi.mydll.test_fn() == 1234
 
