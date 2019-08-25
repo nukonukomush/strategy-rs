@@ -1,3 +1,4 @@
+pub mod library;
 
 use std::os::raw::c_char;
 #[repr(C)]

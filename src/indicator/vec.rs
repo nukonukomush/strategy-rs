@@ -1,6 +1,35 @@
 use crate::time::*;
 use crate::*;
 
+pub struct VecIndicator<G, V> {
+    offset: Time<G>,
+    vec: Vec<V>,
+}
+
+impl<G, V> Indicator<G, V> for VecIndicator<G, V>
+where
+    V: Clone,
+    G: Granularity,
+{
+    fn value(&self, time: Time<G>) -> Option<V> {
+        let i = (time.timestamp() - self.offset.timestamp()) / G::unit_duration();
+        if i >= 0 && i < (self.vec.len() as i64) {
+            Some(self.vec[i as usize].clone())
+        } else {
+            None
+        }
+    }
+}
+
+impl<G, V> VecIndicator<G, V> {
+    pub fn new(offset: Time<G>, source: Vec<V>) -> Self {
+        Self {
+            offset: offset,
+            vec: source,
+        }
+    }
+}
+
 use std::collections::HashMap;
 
 impl<G, V> Indicator<G, V> for HashMap<Time<G>, V>
@@ -16,7 +45,7 @@ where
     }
 }
 
-pub fn vec<V, G>(offset: Time<G>, vec: Vec<V>) -> HashMap<Time<G>, V>
+pub fn from_vec<V, G>(offset: Time<G>, vec: Vec<V>) -> HashMap<Time<G>, V>
 where
     V: Clone,
     G: Granularity,
@@ -76,12 +105,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_vec() {
+        let offset = Time::<S5>::new(0);
+        let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let expect = vec![Some(1.0), Some(2.0), Some(3.0), Some(4.0), Some(5.0)];
+
+        let vec = VecIndicator::new(offset, source.clone());
+        let result = (0..5).map(|i| vec.value(offset + i)).collect::<Vec<_>>();
+        assert_eq!(result, expect);
+    }
+
+    #[test]
     fn test_hash() {
         let offset = Time::<S5>::new(0);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let expect = vec![Some(1.0), Some(2.0), Some(3.0), Some(4.0), Some(5.0)];
 
-        let hash = vec(offset, source.clone());
+        let hash = from_vec(offset, source.clone());
         let result = (0..5).map(|i| hash.value(offset + i)).collect::<Vec<_>>();
         assert_eq!(result, expect);
     }

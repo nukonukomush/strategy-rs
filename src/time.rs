@@ -1,4 +1,4 @@
-pub trait Granularity: Eq + Ord + Clone + Copy + std::hash::Hash {
+pub trait Granularity: Eq + Ord + Clone + Copy + std::hash::Hash + std::fmt::Debug {
     fn unit_duration() -> i64;
 }
 

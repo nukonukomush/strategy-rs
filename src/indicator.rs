@@ -83,7 +83,7 @@ pub mod tests {
     // }
 }
 
-// pub mod cached;
+pub mod cached;
 pub mod vec;
 pub mod sma;
 // pub mod ordering;
