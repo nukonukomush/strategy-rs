@@ -38,6 +38,9 @@ where
         }
         Some(sum / self.period as f64)
     }
+    fn granularity(&self) -> G {
+        self.source.granularity()
+    }
 }
 
 // use std::cell::RefCell;
@@ -86,13 +89,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vec::*;
     use crate::indicator::cached::*;
+    use crate::vec::*;
     // use crate::indicator::tests::*;
 
     #[test]
     fn test_sma() {
-        let offset = Time::<S5>::new(0);
+        let offset = Time::new(0, S5);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let expect = vec![None, None, Some(2.0), Some(3.0), Some(4.0)];
         // let sma_pre = Sma::new(source, 3);

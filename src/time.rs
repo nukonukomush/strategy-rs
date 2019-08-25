@@ -1,7 +1,7 @@
 // pub trait Granularity: Eq + Ord + Clone + Copy + std::hash::Hash + std::fmt::Debug {
 pub trait Granularity {
-    fn unit_duration() -> i64 where Self: Sized;
-    fn is_valid(t: i64) -> bool where Self: Sized;
+    fn unit_duration(&self) -> i64;
+    fn is_valid(&self, t: i64) -> bool;
 }
 
 macro_rules! define_granularity {
@@ -9,10 +9,10 @@ macro_rules! define_granularity {
         #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
         pub struct $t;
         impl Granularity for $t {
-            fn unit_duration() -> i64 {
+            fn unit_duration(&self) -> i64 {
                 $d
             }
-            fn is_valid(t: i64) -> bool {
+            fn is_valid(&self, t: i64) -> bool {
                 $v(t)
             }
         }
@@ -32,22 +32,28 @@ define_granularity!(D1, 60 * 60 * 24, |t| {
     dt.hour() == 0 && dt.minute() == 0 && dt.second() == 0
 });
 
-#[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
-pub struct Time<G>(i64, std::marker::PhantomData<G>);
 
-impl<G: Granularity> Time<G> {
-    pub fn new(t: i64) -> Self {
-        debug_assert!(G::is_valid(t));
-        Time(t, std::marker::PhantomData)
+
+#[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
+pub struct Time<G>(i64, G);
+
+impl<G: Granularity + Copy> Time<G> {
+    pub fn new(t: i64, g: G) -> Self {
+        debug_assert!(g.is_valid(t));
+        Time(t, g)
     }
 
     pub fn timestamp(&self) -> i64 {
         self.0
     }
 
-    pub fn try_into<G2: Granularity>(self) -> Result<Time<G2>, ()> {
-        if G2::is_valid(self.0) {
-            Ok(Time::<G2>::new(self.0))
+    pub fn granularity(&self) -> G {
+        self.1
+    }
+
+    pub fn try_into<G2: Granularity + Copy>(self, g: G2) -> Result<Time<G2>, ()> {
+        if g.is_valid(self.0) {
+            Ok(Time::new(self.0, g))
         } else {
             Err(())
         }
@@ -55,18 +61,18 @@ impl<G: Granularity> Time<G> {
 }
 
 use std::ops::Add;
-impl<G: Granularity> Add<i64> for Time<G> {
+impl<G: Granularity + Copy> Add<i64> for Time<G> {
     type Output = Time<G>;
     fn add(self, other: i64) -> Self::Output {
-        Time::new(self.0 + G::unit_duration() * other)
+        Time::new(self.0 + self.1.unit_duration() * other, self.1)
     }
 }
 
 use std::ops::Sub;
-impl<G: Granularity> Sub<i64> for Time<G> {
+impl<G: Granularity + Copy> Sub<i64> for Time<G> {
     type Output = Time<G>;
     fn sub(self, other: i64) -> Self::Output {
-        Time::new(self.0 - G::unit_duration() * other)
+        Time::new(self.0 - self.1.unit_duration() * other, self.1)
     }
 }
 
@@ -75,18 +81,18 @@ pub mod ffi {
     use std::ffi::CString;
     use std::os::raw::c_char;
 
-    #[repr(C)]
-    pub struct CTime {
-        time: i64,
-        // granularity: CGranularity,
-    }
+    // #[repr(C)]
+    // pub struct CTime {
+    //     time: i64,
+    //     // granularity: CGranularity,
+    // }
 
-    use std::convert::Into;
-    impl<G: Granularity> Into<Time<G>> for CTime {
-        fn into(self) -> Time<G> {
-            Time::new(self.time)
-        }
-    }
+    // use std::convert::Into;
+    // impl<G: Granularity> Into<Time<G>> for CTime {
+    //     fn into(self) -> Time<G> {
+    //         Time::new(self.time)
+    //     }
+    // }
 
     // // #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Hash)]
     // // #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Hash)]
@@ -111,33 +117,33 @@ mod tests {
     #[test]
     fn test_new_s5_ok() {
         let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        Time::<S5>::new(dt.timestamp());
+        Time::new(dt.timestamp(), S5);
     }
 
     #[test]
     #[should_panic]
     fn test_new_s5_ng() {
         let dt = "2019-01-01T00:00:01Z".parse::<DateTime<Utc>>().unwrap();
-        Time::<S5>::new(dt.timestamp());
+        Time::new(dt.timestamp(), S5);
     }
 
     #[test]
     fn test_new_d1_ok() {
         let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        Time::<D1>::new(dt.timestamp());
+        Time::new(dt.timestamp(), D1);
     }
 
     #[test]
     #[should_panic]
     fn test_new_d1_ng() {
         let dt = "2019-01-01T01:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        Time::<D1>::new(dt.timestamp());
+        Time::new(dt.timestamp(), D1);
     }
 
     #[test]
     fn test_add_1() {
         let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        let t = Time::<S5>::new(dt.timestamp());
+        let t = Time::new(dt.timestamp(), S5);
         let result = Utc.timestamp((t + 1).timestamp(), 0);
         let expect = "2019-01-01T00:00:05Z".parse::<DateTime<Utc>>().unwrap();
         assert_eq!(result, expect);
@@ -146,7 +152,7 @@ mod tests {
     #[test]
     fn test_add_2() {
         let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        let t = Time::<S5>::new(dt.timestamp());
+        let t = Time::new(dt.timestamp(), S5);
         let result = Utc.timestamp((t + 2).timestamp(), 0);
         let expect = "2019-01-01T00:00:10Z".parse::<DateTime<Utc>>().unwrap();
         assert_eq!(result, expect);
@@ -155,17 +161,17 @@ mod tests {
     #[test]
     fn test_conv_ok() {
         let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        let t = Time::<S5>::new(dt.timestamp());
-        let result = t.try_into::<D1>();
-        let expect = Ok(Time::<D1>::new(dt.timestamp()));
+        let t = Time::new(dt.timestamp(), S5);
+        let result = t.try_into(D1);
+        let expect = Ok(Time::new(dt.timestamp(), D1));
         assert_eq!(result, expect);
     }
 
     #[test]
     fn test_conv_ng() {
         let dt = "2019-01-01T01:00:05Z".parse::<DateTime<Utc>>().unwrap();
-        let t = Time::<S5>::new(dt.timestamp());
-        let result = t.try_into::<D1>();
+        let t = Time::new(dt.timestamp(), S5);
+        let result = t.try_into(D1);
         let expect = Err(());
         assert_eq!(result, expect);
     }

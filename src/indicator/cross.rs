@@ -70,6 +70,9 @@ where
             None
         }
     }
+    fn granularity(&self) -> G {
+        self.source.granularity()
+    }
 }
 
 #[repr(C)]
@@ -202,7 +205,7 @@ mod tests {
         use CrossState::LtToGt as ltg;
         use CrossState::NotCrossed as not;
 
-        let offset = Time::<S5>::new(0);
+        let offset = Time::<S5>::new(0, S5);
         let source_1 = vec![0.0, 0.0, 2.0, 2.0, 0.0, 1.0, 1.0, 2.0, 1.0, 0.0_f64];
         let source_2 = vec![1.0; 10];
         let expected = vec![not, not, ltg, not, gtl, not, not, ltg, not, gtl]

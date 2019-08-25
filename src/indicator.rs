@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 pub trait Indicator<G, V> {
     fn value(&self, time: Time<G>) -> Option<V>;
+    fn granularity(&self) -> G;
 }
 
 #[derive(Clone)]
@@ -14,6 +15,9 @@ pub struct IndicatorPtr<G, V>(pub Rc<RefCell<dyn Indicator<G, V>>>);
 impl<G, V> Indicator<G, V> for IndicatorPtr<G, V> {
     fn value(&self, time: Time<G>) -> Option<V> {
         self.borrow().value(time)
+    }
+    fn granularity(&self) -> G {
+        self.borrow().granularity()
     }
 }
 
@@ -34,6 +38,10 @@ where
         let inner = self.borrow();
         (*inner).value(time)
     }
+    fn granularity(&self) -> G {
+        let inner = self.borrow();
+        (*inner).granularity()
+    }
 }
 
 impl<G, V, I> Indicator<G, V> for Rc<I>
@@ -44,6 +52,10 @@ where
     #[allow(unconditional_recursion)]
     fn value(&self, time: Time<G>) -> Option<V> {
         self.value(time)
+    }
+    #[allow(unconditional_recursion)]
+    fn granularity(&self) -> G {
+        self.granularity()
     }
 }
 
@@ -96,18 +108,18 @@ pub mod ffi {
         drop(boxed);
     }
 
-    #[no_mangle]
-    pub unsafe extern "C" fn indicator_value_f64(
-        ptr: *mut IndicatorPtr<S5, f64>,
-        time: CTime,
-    ) -> COption<f64> {
-        if ptr.is_null() {
-            return COption::none();
-        }
+    // #[no_mangle]
+    // pub unsafe extern "C" fn indicator_value_f64(
+    //     ptr: *mut IndicatorPtr<S5, f64>,
+    //     time: CTime,
+    // ) -> COption<f64> {
+    //     if ptr.is_null() {
+    //         return COption::none();
+    //     }
 
-        let ptr = &*ptr;
-        COption::from_option(ptr.borrow().value(time.into()))
-    }
+    //     let ptr = &*ptr;
+    //     COption::from_option(ptr.borrow().value(time.into()))
+    // }
 }
 
 pub mod cached;

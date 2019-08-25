@@ -77,6 +77,9 @@ where
             None
         }
     }
+    fn granularity(&self) -> G {
+        self.source_1.granularity()
+    }
 }
 
 // use std::cell::RefCell;

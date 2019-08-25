@@ -42,6 +42,9 @@ where
             },
         }
     }
+    fn granularity(&self) -> G {
+        self.source.granularity()
+    }
 }
 
 // use std::mem::drop;
