@@ -87,8 +87,8 @@ pub mod cached;
 pub mod vec;
 pub mod convert_granularity;
 pub mod sma;
-// pub mod ordering;
-// pub mod cross;
+pub mod ordering;
+pub mod cross;
 
 // #[no_mangle]
 // pub unsafe extern "C" fn indicator_value_f64(
