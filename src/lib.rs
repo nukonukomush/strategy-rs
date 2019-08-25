@@ -32,10 +32,11 @@ where
     }
 }
 
-use std::hash::Hash;
-pub trait Time: Eq + Ord + Hash {
-}
+// use std::hash::Hash;
+// pub trait Time: Eq + Ord + Hash {
+// }
 
+pub mod time;
 pub mod indicator;
 
 use indicator::*;

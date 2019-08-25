@@ -1,50 +1,49 @@
 use crate::*;
+use crate::time::*;
 use std::cell::RefCell;
 use std::os::raw::*;
 use std::rc::Rc;
 
-pub trait Indicator<T> {
-    fn value(&self, index: isize) -> Option<T>;
+pub trait Indicator<G, V> {
+    fn value(&self, time: Time<G>) -> Option<V>;
 }
 
 #[derive(Clone)]
-pub struct IndicatorPtr<T>(pub Rc<RefCell<dyn Indicator<T>>>);
+pub struct IndicatorPtr<G, V>(pub Rc<RefCell<dyn Indicator<G, V>>>);
 
-impl<T> Indicator<T> for IndicatorPtr<T>
-{
-    fn value(&self, index: isize) -> Option<T> {
-        self.borrow().value(index)
+impl<G, V> Indicator<G, V> for IndicatorPtr<G, V> {
+    fn value(&self, time: Time<G>) -> Option<V> {
+        self.borrow().value(time)
     }
 }
 
 use std::ops::Deref;
-impl<T> Deref for IndicatorPtr<T>
-{
-    type Target = Rc<RefCell<dyn Indicator<T>>>;
+impl<G, V> Deref for IndicatorPtr<G, V> {
+    type Target = Rc<RefCell<dyn Indicator<G, V>>>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T, U> Indicator<T> for RefCell<U>
+impl<G, V, I> Indicator<G, V> for RefCell<I>
 where
-    T: Clone,
-    U: Indicator<T>,
+    V: Clone,
+    I: Indicator<G, V>,
 {
-    fn value(&self, index: isize) -> Option<T> {
+    fn value(&self, time: Time<G>) -> Option<V> {
         let inner = self.borrow();
-        (*inner).value(index)
+        (*inner).value(time)
     }
 }
 
-impl<T, U> Indicator<T> for Rc<U>
+impl<G, V, I> Indicator<G, V> for Rc<I>
 where
-    T: Clone,
-    U: Indicator<T>,
+    V: Clone,
+    I: Indicator<G, V>,
 {
     #[allow(unconditional_recursion)]
-    fn value(&self, index: isize) -> Option<T> {
-        self.value(index)
+    fn value(&self, time: Time<G>) -> Option<V> {
+        self.value(time)
     }
 }
 
@@ -67,70 +66,70 @@ pub mod tests {
         }
     }
 
-    pub fn indicator_iter<T, U>(indicator: T) -> impl Iterator<Item = U>
-    where
-        T: Indicator<U>,
-    {
-        let mut index = 0;
-        let f = move || {
-            let value = indicator.value(index);
-            index += 1;
-            value
-        };
-        FnMutIter {
-            closure: f,
-            phantom: std::marker::PhantomData,
-        }
-    }
+    // pub fn indicator_iter<G, V, I>(indicator: I) -> impl Iterator<Item = V>
+    // where
+    //     I: Indicator<G, V>,
+    // {
+    //     let mut index = 0;
+    //     let f = move || {
+    //         let value = indicator.value(index);
+    //         index += 1;
+    //         value
+    //     };
+    //     FnMutIter {
+    //         closure: f,
+    //         phantom: std::marker::PhantomData,
+    //     }
+    // }
 }
 
-pub mod cached;
+// pub mod cached;
 pub mod vec;
 pub mod sma;
-pub mod ordering;
-pub mod cross;
+// pub mod ordering;
+// pub mod cross;
 
-#[no_mangle]
-pub unsafe extern "C" fn indicator_value_f64(
-    ptr: *mut IndicatorPtr<f64>,
-    i: c_int,
-) -> COption<f64> {
-    if ptr.is_null() {
-        return COption::none();
-    }
+// #[no_mangle]
+// pub unsafe extern "C" fn indicator_value_f64(
+//     ptr: *mut IndicatorPtr<f64>,
+//     i: c_int,
+// ) -> COption<f64> {
+//     if ptr.is_null() {
+//         return COption::none();
+//     }
 
-    let ptr = &*ptr;
-    COption::from_option(ptr.borrow().value(i as isize))
-}
+//     let ptr = &*ptr;
+//     COption::from_option(ptr.borrow().value(i as isize))
+// }
 
-#[no_mangle]
-pub unsafe extern "C" fn indicator_destroy_f64(obj: *mut IndicatorPtr<f64>) {
-    if obj.is_null() {
-        return;
-    }
-    let boxed = Box::from_raw(obj);
-    drop(boxed);
-}
+// #[no_mangle]
+// pub unsafe extern "C" fn indicator_destroy_f64(obj: *mut IndicatorPtr<f64>) {
+//     if obj.is_null() {
+//         return;
+//     }
+//     let boxed = Box::from_raw(obj);
+//     drop(boxed);
+// }
 
-use cross::CrossState;
-#[no_mangle]
-pub unsafe extern "C" fn indicator_value_cross(
-    ptr: *mut IndicatorPtr<CrossState>,
-    i: c_int,
-) -> COption<CrossState> {
-    if ptr.is_null() {
-        return COption::none();
-    }
+// use cross::CrossState;
+// #[no_mangle]
+// pub unsafe extern "C" fn indicator_value_cross(
+//     ptr: *mut IndicatorPtr<CrossState>,
+//     i: c_int,
+// ) -> COption<CrossState> {
+//     if ptr.is_null() {
+//         return COption::none();
+//     }
 
-    let ptr = &*ptr;
-    COption::from_option(ptr.borrow().value(i as isize))
-}
+//     let ptr = &*ptr;
+//     COption::from_option(ptr.borrow().value(i as isize))
+// }
 
-#[no_mangle]
-pub unsafe extern "C" fn indicator_destroy_cross(obj: *mut IndicatorPtr<CrossState>) {
-    if obj.is_null() {
-        return;
-    }
-    let boxed = Box::from_raw(obj);
-    drop(boxed);
-}
+// #[no_mangle]
+// pub unsafe extern "C" fn indicator_destroy_cross(obj: *mut IndicatorPtr<CrossState>) {
+//     if obj.is_null() {
+//         return;
+//     }
+//     let boxed = Box::from_raw(obj);
+//     drop(boxed);
+// }
