@@ -1,6 +1,7 @@
-pub trait Granularity: Eq + Ord + Clone + Copy + std::hash::Hash + std::fmt::Debug {
-    fn unit_duration() -> i64;
-    fn is_valid(t: i64) -> bool;
+// pub trait Granularity: Eq + Ord + Clone + Copy + std::hash::Hash + std::fmt::Debug {
+pub trait Granularity {
+    fn unit_duration() -> i64 where Self: Sized;
+    fn is_valid(t: i64) -> bool where Self: Sized;
 }
 
 macro_rules! define_granularity {
@@ -67,6 +68,40 @@ impl<G: Granularity> Sub<i64> for Time<G> {
     fn sub(self, other: i64) -> Self::Output {
         Time::new(self.0 - G::unit_duration() * other)
     }
+}
+
+pub mod ffi {
+    use super::*;
+    use std::ffi::CString;
+    use std::os::raw::c_char;
+
+    #[repr(C)]
+    pub struct CTime {
+        time: i64,
+        // granularity: CGranularity,
+    }
+
+    use std::convert::Into;
+    impl<G: Granularity> Into<Time<G>> for CTime {
+        fn into(self) -> Time<G> {
+            Time::new(self.time)
+        }
+    }
+
+    // // #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Hash)]
+    // // #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Hash)]
+    // pub struct CGranularity(Box<dyn Granularity>);
+    // // pub struct CGranularity(*const c_char);
+    // impl Granularity for CGranularity {
+    //     fn unit_duration() -> i64 {
+    //         5
+    //     }
+    //     fn is_valid(t: i64) -> bool {
+    //         true
+    //     }
+    // }
+
+
 }
 
 #[cfg(test)]

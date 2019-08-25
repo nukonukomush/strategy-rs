@@ -20,7 +20,7 @@ impl<G, I> Sma<G, I> {
 
 impl<G, I> Indicator<G, f64> for Sma<G, I>
 where
-    G: Granularity,
+    G: Granularity + Ord + Copy,
     I: Indicator<G, f64>,
 {
     fn value(&self, time: Time<G>) -> Option<f64> {

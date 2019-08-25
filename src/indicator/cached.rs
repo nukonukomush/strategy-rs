@@ -11,7 +11,7 @@ pub struct LRUCache<G, V, I> {
 
 impl<G, V, I> LRUCache<G, V, I>
 where
-    G: Granularity,
+    G: Granularity + Eq + std::hash::Hash,
     V: Clone,
     I: Indicator<G, V>,
 {
@@ -25,7 +25,7 @@ where
 
 impl<G, V, I> Indicator<G, V> for LRUCache<G, V, I>
 where
-    G: Granularity,
+    G: Granularity + Eq + std::hash::Hash + Copy,
     V: Clone,
     I: Indicator<G, V>,
 {

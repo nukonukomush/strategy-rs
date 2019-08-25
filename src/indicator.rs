@@ -1,5 +1,5 @@
-use crate::*;
 use crate::time::*;
+use crate::*;
 use std::cell::RefCell;
 use std::os::raw::*;
 use std::rc::Rc;
@@ -83,12 +83,39 @@ pub mod tests {
     // }
 }
 
+pub mod ffi {
+    use super::*;
+    use crate::time::ffi::*;
+
+    pub unsafe fn destroy<T>(ptr: *mut T) {
+        if ptr.is_null() {
+            return;
+        }
+        // ここ Box にする必要ある？？
+        let boxed = Box::from_raw(ptr);
+        drop(boxed);
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn indicator_value_f64(
+        ptr: *mut IndicatorPtr<S5, f64>,
+        time: CTime,
+    ) -> COption<f64> {
+        if ptr.is_null() {
+            return COption::none();
+        }
+
+        let ptr = &*ptr;
+        COption::from_option(ptr.borrow().value(time.into()))
+    }
+}
+
 pub mod cached;
-pub mod vec;
 pub mod convert_granularity;
-pub mod sma;
-pub mod ordering;
 pub mod cross;
+pub mod ordering;
+pub mod sma;
+pub mod vec;
 
 // #[no_mangle]
 // pub unsafe extern "C" fn indicator_value_f64(

@@ -30,7 +30,7 @@ where
 
 impl<G, I> Indicator<G, CrossState> for Cross<G, I>
 where
-    G: Granularity,
+    G: Granularity + Copy,
     I: Indicator<G, std::cmp::Ordering>,
 {
     fn value(&self, time: Time<G>) -> Option<CrossState> {

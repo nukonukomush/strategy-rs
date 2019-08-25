@@ -57,135 +57,148 @@ def Option(T):
     else:
         pass
 
-getattr(mydll, "indicator_value_{}".format("f64")).argtypes = [c_void_p, c_int]
+class Time(Structure):
+    _fields_ = [
+        ("time", c_longlong),
+        ("granularity", c_char_p),
+    ]
+
+class Ptr(Structure):
+    _fields_ = [
+        ("b_ptr", c_void_p),
+        ("t_ptr", c_void_p),
+    ]
+
+getattr(mydll, "indicator_value_{}".format("f64")).argtypes = [c_void_p, Time]
 getattr(mydll, "indicator_value_{}".format("f64")).restype = Option(c_double)
-getattr(mydll, "indicator_destroy_{}".format("f64")).argtypes = [c_void_p]
-getattr(mydll, "indicator_destroy_{}".format("f64")).restype = None
 
 class Vec:
-    for T, t_str in type_map.items():
-        getattr(mydll, "vec_new_{}".format(t_str)).argtypes = [POINTER(T), c_int]
-        getattr(mydll, "vec_new_{}".format(t_str)).restype = c_void_p
-        getattr(mydll, "vec_trait_{}".format(t_str)).argtypes = [c_void_p]
-        getattr(mydll, "vec_trait_{}".format(t_str)).restype = c_void_p
-        getattr(mydll, "vec_destroy_{}".format(t_str)).argtypes = [c_void_p]
+    # for T, t_str in type_map.items():
+    #     getattr(mydll, "vec_new_{}".format(t_str)).argtypes = [Time, POINTER(T), c_int]
+    #     getattr(mydll, "vec_new_{}".format(t_str)).restype = Ptr
+    #     getattr(mydll, "vec_destroy_{}".format(t_str)).argtypes = [Ptr]
+    #     getattr(mydll, "vec_destroy_{}".format(t_str)).restype = None
+
+    for T, t_str in {
+        c_double: "f64",
+    }.items():
+        getattr(mydll, "vec_new_{}".format(t_str)).argtypes = [Time, POINTER(T), c_int]
+        getattr(mydll, "vec_new_{}".format(t_str)).restype = Ptr
+        getattr(mydll, "vec_destroy_{}".format(t_str)).argtypes = [Ptr]
         getattr(mydll, "vec_destroy_{}".format(t_str)).restype = None
 
-    def __init__(self, T, vec):
+    def __init__(self, offset, T, vec):
         self.T = T
         length = len(vec)
         arr = (T * length)(*vec)
         ptr = POINTER(T)(arr)
-        self.b_ptr = getattr(mydll, "vec_new_{}".format(get_rust_type(self.T)))(ptr, length)
-        self.t_ptr = getattr(mydll, "vec_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
+        self.ptr = getattr(mydll, "vec_new_{}".format(get_rust_type(self.T)))(offset, ptr, length)
 
     def value(self, i):
-        return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.t_ptr, i)
+        return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.ptr.t_ptr, i)
 
     def __del__(self):
-        getattr(mydll, "vec_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
-        self.b_ptr = None
-        getattr(mydll, "indicator_destroy_{}".format(get_rust_type(self.T)))(self.t_ptr)
-        self.t_ptr = None
+        getattr(mydll, "vec_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
+        self.ptr = None
 
-class Sma:
-    for T, t_str in type_map.items():
-        getattr(mydll, "sma_new_{}".format(t_str)).argtypes = [c_void_p, c_int]
-        getattr(mydll, "sma_new_{}".format(t_str)).restype = c_void_p
-        getattr(mydll, "sma_trait_{}".format(t_str)).argtypes = [c_void_p]
-        getattr(mydll, "sma_trait_{}".format(t_str)).restype = c_void_p
-        getattr(mydll, "sma_destroy_{}".format(t_str)).argtypes = [c_void_p]
-        getattr(mydll, "sma_destroy_{}".format(t_str)).restype = None
-
-    def __init__(self, T, source, period):
-        self.T = T
-        self.b_ptr = getattr(mydll, "sma_new_{}".format(get_rust_type(self.T)))(source.t_ptr, period)
-        self.t_ptr = getattr(mydll, "sma_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
-
-    def value(self, i):
-        return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.t_ptr, i)
-
-    def __del__(self):
-        getattr(mydll, "sma_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
-        self.b_ptr = None
-        getattr(mydll, "indicator_destroy_{}".format(get_rust_type(self.T)))(self.t_ptr)
-        self.t_ptr = None
-
-class Cached:
-    for T, t_str in type_map.items():
-        getattr(mydll, "cached_new_{}".format(t_str)).argtypes = [c_void_p]
-        getattr(mydll, "cached_new_{}".format(t_str)).restype = c_void_p
-        getattr(mydll, "cached_trait_{}".format(t_str)).argtypes = [c_void_p]
-        getattr(mydll, "cached_trait_{}".format(t_str)).restype = c_void_p
-        getattr(mydll, "cached_destroy_{}".format(t_str)).argtypes = [c_void_p]
-        getattr(mydll, "cached_destroy_{}".format(t_str)).restype = None
-
-    def __init__(self, T, source):
-        self.T = T
-        self.b_ptr = getattr(mydll, "cached_new_{}".format(get_rust_type(self.T)))(source.t_ptr)
-        self.t_ptr = getattr(mydll, "cached_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
-
-    def value(self, i):
-        return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.t_ptr, i)
-
-    def __del__(self):
-        getattr(mydll, "cached_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
-        self.b_ptr = None
-        getattr(mydll, "indicator_destroy_{}".format(get_rust_type(self.T)))(self.t_ptr)
-        self.t_ptr = None
-
-# OrderingValue = c_int
-# getattr(mydll, "indicator_value_{}".format("ordering")).argtypes = [c_void_p, c_int]
-# getattr(mydll, "indicator_value_{}".format("ordering")).restype = Option(OrderingValue)
-# getattr(mydll, "indicator_destroy_{}".format("ordering")).argtypes = [c_void_p]
-# getattr(mydll, "indicator_destroy_{}".format("ordering")).restype = None
-# class Ordering:
+# class Sma:
 #     for T, t_str in type_map.items():
-#         getattr(mydll, "ordering_new_{}".format(t_str)).argtypes = [c_void_p, c_void_p]
-#         getattr(mydll, "ordering_new_{}".format(t_str)).restype = c_void_p
-#         getattr(mydll, "ordering_trait_{}".format(t_str)).argtypes = [c_void_p]
-#         getattr(mydll, "ordering_trait_{}".format(t_str)).restype = c_void_p
-#         getattr(mydll, "ordering_destroy_{}".format(t_str)).argtypes = [c_void_p]
-#         getattr(mydll, "ordering_destroy_{}".format(t_str)).restype = None
+#         getattr(mydll, "sma_new_{}".format(t_str)).argtypes = [c_void_p, c_int]
+#         getattr(mydll, "sma_new_{}".format(t_str)).restype = c_void_p
+#         getattr(mydll, "sma_trait_{}".format(t_str)).argtypes = [c_void_p]
+#         getattr(mydll, "sma_trait_{}".format(t_str)).restype = c_void_p
+#         getattr(mydll, "sma_destroy_{}".format(t_str)).argtypes = [c_void_p]
+#         getattr(mydll, "sma_destroy_{}".format(t_str)).restype = None
 
-#     def __init__(self, T, source):
+#     def __init__(self, T, source, period):
 #         self.T = T
-#         self.b_ptr = getattr(mydll, "ordering_new_{}".format(get_rust_type(self.T)))(source.t_ptr)
-#         self.t_ptr = getattr(mydll, "ordering_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
+#         self.b_ptr = getattr(mydll, "sma_new_{}".format(get_rust_type(self.T)))(source.t_ptr, period)
+#         self.t_ptr = getattr(mydll, "sma_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
 
 #     def value(self, i):
-#         return getattr(mydll, "indicator_value_ordering")(self.t_ptr, i)
+#         return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.t_ptr, i)
 
 #     def __del__(self):
-#         getattr(mydll, "ordering_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
+#         getattr(mydll, "sma_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
 #         self.b_ptr = None
 #         getattr(mydll, "indicator_destroy_{}".format(get_rust_type(self.T)))(self.t_ptr)
 #         self.t_ptr = None
 
-CrossState = c_int
-# getattr(mydll, "indicator_value_{}".format("cross")).argtypes = [c_void_p, c_int]
-# getattr(mydll, "indicator_value_{}".format("cross")).restype = Option(CrossState)
-# getattr(mydll, "indicator_destroy_{}".format("cross")).argtypes = [c_void_p]
-# getattr(mydll, "indicator_destroy_{}".format("cross")).restype = None
-class Cross:
-    for T, t_str in type_map.items():
-        getattr(mydll, "cross_new_{}".format(t_str)).argtypes = [c_void_p, c_void_p]
-        getattr(mydll, "cross_new_{}".format(t_str)).restype = c_void_p
-        getattr(mydll, "cross_trait_{}".format(t_str)).argtypes = [c_void_p]
-        getattr(mydll, "cross_trait_{}".format(t_str)).restype = c_void_p
-        getattr(mydll, "cross_destroy_{}".format(t_str)).argtypes = [c_void_p]
-        getattr(mydll, "cross_destroy_{}".format(t_str)).restype = None
+# class Cached:
+#     for T, t_str in type_map.items():
+#         getattr(mydll, "cached_new_{}".format(t_str)).argtypes = [c_void_p]
+#         getattr(mydll, "cached_new_{}".format(t_str)).restype = c_void_p
+#         getattr(mydll, "cached_trait_{}".format(t_str)).argtypes = [c_void_p]
+#         getattr(mydll, "cached_trait_{}".format(t_str)).restype = c_void_p
+#         getattr(mydll, "cached_destroy_{}".format(t_str)).argtypes = [c_void_p]
+#         getattr(mydll, "cached_destroy_{}".format(t_str)).restype = None
 
-    def __init__(self, T, source_1, source_2):
-        self.T = T
-        self.b_ptr = getattr(mydll, "cross_new_{}".format(get_rust_type(self.T)))(source_1.t_ptr, source_2.t_ptr)
-        self.t_ptr = getattr(mydll, "cross_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
+#     def __init__(self, T, source):
+#         self.T = T
+#         self.b_ptr = getattr(mydll, "cached_new_{}".format(get_rust_type(self.T)))(source.t_ptr)
+#         self.t_ptr = getattr(mydll, "cached_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
 
-    def value(self, i):
-        return getattr(mydll, "indicator_value_cross")(self.t_ptr, i)
+#     def value(self, i):
+#         return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.t_ptr, i)
 
-    def __del__(self):
-        getattr(mydll, "cross_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
-        self.b_ptr = None
-        getattr(mydll, "indicator_destroy_{}".format("cross"))(self.t_ptr)
-        self.t_ptr = None
+#     def __del__(self):
+#         getattr(mydll, "cached_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
+#         self.b_ptr = None
+#         getattr(mydll, "indicator_destroy_{}".format(get_rust_type(self.T)))(self.t_ptr)
+#         self.t_ptr = None
+
+# # OrderingValue = c_int
+# # getattr(mydll, "indicator_value_{}".format("ordering")).argtypes = [c_void_p, c_int]
+# # getattr(mydll, "indicator_value_{}".format("ordering")).restype = Option(OrderingValue)
+# # getattr(mydll, "indicator_destroy_{}".format("ordering")).argtypes = [c_void_p]
+# # getattr(mydll, "indicator_destroy_{}".format("ordering")).restype = None
+# # class Ordering:
+# #     for T, t_str in type_map.items():
+# #         getattr(mydll, "ordering_new_{}".format(t_str)).argtypes = [c_void_p, c_void_p]
+# #         getattr(mydll, "ordering_new_{}".format(t_str)).restype = c_void_p
+# #         getattr(mydll, "ordering_trait_{}".format(t_str)).argtypes = [c_void_p]
+# #         getattr(mydll, "ordering_trait_{}".format(t_str)).restype = c_void_p
+# #         getattr(mydll, "ordering_destroy_{}".format(t_str)).argtypes = [c_void_p]
+# #         getattr(mydll, "ordering_destroy_{}".format(t_str)).restype = None
+
+# #     def __init__(self, T, source):
+# #         self.T = T
+# #         self.b_ptr = getattr(mydll, "ordering_new_{}".format(get_rust_type(self.T)))(source.t_ptr)
+# #         self.t_ptr = getattr(mydll, "ordering_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
+
+# #     def value(self, i):
+# #         return getattr(mydll, "indicator_value_ordering")(self.t_ptr, i)
+
+# #     def __del__(self):
+# #         getattr(mydll, "ordering_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
+# #         self.b_ptr = None
+# #         getattr(mydll, "indicator_destroy_{}".format(get_rust_type(self.T)))(self.t_ptr)
+# #         self.t_ptr = None
+
+# CrossState = c_int
+# # getattr(mydll, "indicator_value_{}".format("cross")).argtypes = [c_void_p, c_int]
+# # getattr(mydll, "indicator_value_{}".format("cross")).restype = Option(CrossState)
+# # getattr(mydll, "indicator_destroy_{}".format("cross")).argtypes = [c_void_p]
+# # getattr(mydll, "indicator_destroy_{}".format("cross")).restype = None
+# class Cross:
+#     for T, t_str in type_map.items():
+#         getattr(mydll, "cross_new_{}".format(t_str)).argtypes = [c_void_p, c_void_p]
+#         getattr(mydll, "cross_new_{}".format(t_str)).restype = c_void_p
+#         getattr(mydll, "cross_trait_{}".format(t_str)).argtypes = [c_void_p]
+#         getattr(mydll, "cross_trait_{}".format(t_str)).restype = c_void_p
+#         getattr(mydll, "cross_destroy_{}".format(t_str)).argtypes = [c_void_p]
+#         getattr(mydll, "cross_destroy_{}".format(t_str)).restype = None
+
+#     def __init__(self, T, source_1, source_2):
+#         self.T = T
+#         self.b_ptr = getattr(mydll, "cross_new_{}".format(get_rust_type(self.T)))(source_1.t_ptr, source_2.t_ptr)
+#         self.t_ptr = getattr(mydll, "cross_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
+
+#     def value(self, i):
+#         return getattr(mydll, "indicator_value_cross")(self.t_ptr, i)
+
+#     def __del__(self):
+#         getattr(mydll, "cross_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
+#         self.b_ptr = None
+#         getattr(mydll, "indicator_destroy_{}".format("cross"))(self.t_ptr)
+#         self.t_ptr = None

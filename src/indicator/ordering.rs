@@ -63,7 +63,7 @@ where
 
 impl<G, V, I1, I2> Indicator<G, std::cmp::Ordering> for Ordering<G, V, I1, I2>
 where
-    G: Granularity,
+    G: Granularity + Copy,
     V: PartialOrd,
     I1: Indicator<G, V>,
     I2: Indicator<G, V>,
