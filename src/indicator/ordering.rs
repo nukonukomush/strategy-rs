@@ -43,36 +43,36 @@ where
 //     }
 // }
 
-#[repr(C)]
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
-pub enum OrderingValue {
-    Less = -1,
-    Equal = 0,
-    Greater = 1,
-}
+// #[repr(C)]
+// #[derive(PartialEq, Eq, Debug, Clone, Copy)]
+// pub enum OrderingValue {
+//     Less = -1,
+//     Equal = 0,
+//     Greater = 1,
+// }
 
-impl OrderingValue {
-    pub fn from_std(src: std::cmp::Ordering) -> Self {
-        match src {
-            std::cmp::Ordering::Equal => OrderingValue::Equal,
-            std::cmp::Ordering::Greater => OrderingValue::Greater,
-            std::cmp::Ordering::Less => OrderingValue::Less,
-        }
-    }
-}
+// impl OrderingValue {
+//     pub fn from_std(src: std::cmp::Ordering) -> Self {
+//         match src {
+//             std::cmp::Ordering::Equal => OrderingValue::Equal,
+//             std::cmp::Ordering::Greater => OrderingValue::Greater,
+//             std::cmp::Ordering::Less => OrderingValue::Less,
+//         }
+//     }
+// }
 
-impl<G, V, I1, I2> Indicator<G, OrderingValue> for Ordering<G, V, I1, I2>
+impl<G, V, I1, I2> Indicator<G, std::cmp::Ordering> for Ordering<G, V, I1, I2>
 where
     G: Granularity,
     V: PartialOrd,
     I1: Indicator<G, V>,
     I2: Indicator<G, V>,
 {
-    fn value(&self, time: Time<G>) -> Option<OrderingValue> {
+    fn value(&self, time: Time<G>) -> Option<std::cmp::Ordering> {
         if let (Some(val_1), Some(val_2)) = (self.source_1.value(time), self.source_2.value(time)) {
             // TODO: don't use unwrap
             let ord = val_1.partial_cmp(&val_2).unwrap();
-            Some(OrderingValue::from_std(ord))
+            Some(ord)
         } else {
             None
         }

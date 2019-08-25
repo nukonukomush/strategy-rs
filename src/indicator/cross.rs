@@ -6,19 +6,8 @@ pub struct Cross<G, I> {
     phantom: std::marker::PhantomData<G>,
 }
 
-pub fn cross<G, V, I1, I2>(source_1: I1, source_2: I2) -> Cross<G, Ordering<G, V, I1, I2>>
-where
-    G: Granularity,
-    V: PartialOrd,
-    I1: Indicator<G, V>,
-    I2: Indicator<G, V>,
-{
-    let source = Ordering::new(source_1, source_2);
-    Cross::new(source)
-}
-
 impl<G, I> Cross<G, I> {
-    pub fn new(source: I) -> Self {
+    pub fn from_ord(source: I) -> Self {
         Self {
             source: source,
             phantom: std::marker::PhantomData,
@@ -26,14 +15,27 @@ impl<G, I> Cross<G, I> {
     }
 }
 
+impl<G, V, I1, I2> Cross<G, Ordering<G, V, I1, I2>>
+where
+    G: Granularity,
+    V: PartialOrd,
+    I1: Indicator<G, V>,
+    I2: Indicator<G, V>,
+{
+    pub fn new(source_1: I1, source_2: I2) -> Self {
+        let source = Ordering::new(source_1, source_2);
+        Cross::from_ord(source)
+    }
+}
+
 impl<G, I> Indicator<G, CrossState> for Cross<G, I>
 where
     G: Granularity,
-    I: Indicator<G, OrderingValue>,
+    I: Indicator<G, std::cmp::Ordering>,
 {
     fn value(&self, time: Time<G>) -> Option<CrossState> {
         use CrossState::*;
-        use OrderingValue::*;
+        use std::cmp::Ordering::*;
 
         // TODO: refactor
         if let Some(current_ord) = self.source.value(time) {
@@ -209,7 +211,7 @@ mod tests {
             .collect::<Vec<_>>();
         let source_1 = VecIndicator::new(offset, source_1);
         let source_2 = VecIndicator::new(offset, source_2);
-        let cross = cross(source_1, source_2);
+        let cross = Cross::new(source_1, source_2);
 
         let result = (0..10).map(|i| cross.value(offset + i)).collect::<Vec<_>>();
         assert_eq!(result, expected);
