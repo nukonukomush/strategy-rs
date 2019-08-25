@@ -48,8 +48,47 @@ where
     }
 }
 
-pub mod sma;
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    pub struct FnMutIter<F, T> {
+        closure: F,
+        phantom: std::marker::PhantomData<T>,
+    }
+
+    impl<F, T> std::iter::Iterator for FnMutIter<F, T>
+    where
+        F: FnMut() -> Option<T>,
+    {
+        type Item = T;
+        fn next(&mut self) -> Option<Self::Item> {
+            (self.closure)()
+        }
+    }
+
+    pub fn indicator_iter<T, U>(indicator: T) -> impl Iterator<Item = U>
+    where
+        T: Indicator<U>,
+    {
+        let mut index = 0;
+        let f = move || {
+            let value = indicator.value(index);
+            index += 1;
+            value
+        };
+        FnMutIter {
+            closure: f,
+            phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+pub mod cached;
 pub mod vec;
+pub mod sma;
+pub mod ordering;
+pub mod cross;
 
 #[no_mangle]
 pub unsafe extern "C" fn indicator_value_f64(
@@ -66,6 +105,29 @@ pub unsafe extern "C" fn indicator_value_f64(
 
 #[no_mangle]
 pub unsafe extern "C" fn indicator_destroy_f64(obj: *mut IndicatorPtr<f64>) {
+    if obj.is_null() {
+        return;
+    }
+    let boxed = Box::from_raw(obj);
+    drop(boxed);
+}
+
+use cross::CrossState;
+#[no_mangle]
+pub unsafe extern "C" fn indicator_value_cross(
+    ptr: *mut IndicatorPtr<CrossState>,
+    i: c_int,
+) -> COption<CrossState> {
+    if ptr.is_null() {
+        return COption::none();
+    }
+
+    let ptr = &*ptr;
+    COption::from_option(ptr.borrow().value(i as isize))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn indicator_destroy_cross(obj: *mut IndicatorPtr<CrossState>) {
     if obj.is_null() {
         return;
     }

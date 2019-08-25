@@ -76,16 +76,15 @@ define_sma_methods!(f64, sma_new_f64, sma_trait_f64, sma_destroy_f64);
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use crate::indicator::cached::*;
+    use crate::indicator::cached::*;
     // use crate::indicator::tests::*;
 
     #[test]
     fn test_sma() {
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let expect = vec![None, None, Some(2.0), Some(3.0), Some(4.0)];
-        // let sma_pre = Sma::new(source, 3);
-        // let sma = Cached::new(sma_pre);
-        let sma = Sma::new(source, 3);
+        let sma_pre = Sma::new(source, 3);
+        let sma = Cached::new(sma_pre);
 
         let result = (0..5).map(|i| sma.value(i)).collect::<Vec<_>>();
         assert_eq!(result, expect);
