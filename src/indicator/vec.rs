@@ -88,32 +88,32 @@ mod ffi {
     use std::rc::Rc;
 
     #[repr(C)]
-    pub struct VecPtr<V> {
+    pub struct Ptr<V> {
         b_ptr: *mut Rc<RefCell<VecIndicator<VarGranularity, V>>>,
         t_ptr: *mut IndicatorPtr<VarGranularity, V>,
     }
 
     macro_rules! define_vec_methods {
-        ($t:ty, $new:ident, $trait:ident, $destroy:ident) => {
+        ($t:ty, $new:ident, $destroy:ident) => {
             #[no_mangle]
             pub unsafe extern "C" fn $new(
                 offset: CTime,
                 array: *const $t,
                 length: c_int,
-            ) -> VecPtr<$t> {
+            ) -> Ptr<$t> {
                 let array: &[$t] = std::slice::from_raw_parts(array, length as usize);
                 let ptr = Rc::new(RefCell::new(VecIndicator::new(
                     offset.into(),
                     array.to_vec(),
                 )));
-                VecPtr {
+                Ptr {
                     b_ptr: Box::into_raw(Box::new(ptr.clone())),
                     t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
                 }
             }
 
             #[no_mangle]
-            pub unsafe extern "C" fn $destroy(ptr: VecPtr<$t>) {
+            pub unsafe extern "C" fn $destroy(ptr: Ptr<$t>) {
                 destroy(ptr.b_ptr);
                 destroy(ptr.t_ptr);
             }
@@ -150,7 +150,7 @@ mod ffi {
         };
     }
 
-    define_vec_methods!(f64, vec_new_f64, vec_trait_f64, vec_destroy_f64);
+    define_vec_methods!(f64, vec_new_f64, vec_destroy_f64);
 }
 
 #[cfg(test)]

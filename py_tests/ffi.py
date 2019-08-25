@@ -79,12 +79,6 @@ getattr(mydll, "indicator_value_{}".format("f64")).argtypes = [c_void_p, Time]
 getattr(mydll, "indicator_value_{}".format("f64")).restype = Option(c_double)
 
 class Vec:
-    # for T, t_str in type_map.items():
-    #     getattr(mydll, "vec_new_{}".format(t_str)).argtypes = [Time, POINTER(T), c_int]
-    #     getattr(mydll, "vec_new_{}".format(t_str)).restype = Ptr
-    #     getattr(mydll, "vec_destroy_{}".format(t_str)).argtypes = [Ptr]
-    #     getattr(mydll, "vec_destroy_{}".format(t_str)).restype = None
-
     for T, t_str in {
         c_double: "f64",
     }.items():
@@ -130,28 +124,25 @@ class Vec:
 #         getattr(mydll, "indicator_destroy_{}".format(get_rust_type(self.T)))(self.t_ptr)
 #         self.t_ptr = None
 
-# class Cached:
-#     for T, t_str in type_map.items():
-#         getattr(mydll, "cached_new_{}".format(t_str)).argtypes = [c_void_p]
-#         getattr(mydll, "cached_new_{}".format(t_str)).restype = c_void_p
-#         getattr(mydll, "cached_trait_{}".format(t_str)).argtypes = [c_void_p]
-#         getattr(mydll, "cached_trait_{}".format(t_str)).restype = c_void_p
-#         getattr(mydll, "cached_destroy_{}".format(t_str)).argtypes = [c_void_p]
-#         getattr(mydll, "cached_destroy_{}".format(t_str)).restype = None
+class Cached:
+    for T, t_str in {
+        c_double: "f64",
+    }.items():
+        getattr(mydll, "cached_new_{}".format(t_str)).argtypes = [c_int, c_void_p]
+        getattr(mydll, "cached_new_{}".format(t_str)).restype = Ptr
+        getattr(mydll, "cached_destroy_{}".format(t_str)).argtypes = [Ptr]
+        getattr(mydll, "cached_destroy_{}".format(t_str)).restype = None
 
-#     def __init__(self, T, source):
-#         self.T = T
-#         self.b_ptr = getattr(mydll, "cached_new_{}".format(get_rust_type(self.T)))(source.t_ptr)
-#         self.t_ptr = getattr(mydll, "cached_trait_{}".format(get_rust_type(self.T)))(self.b_ptr)
+    def __init__(self, T, capacity, source):
+        self.T = T
+        self.ptr = getattr(mydll, "cached_new_{}".format(get_rust_type(self.T)))(capacity, source.ptr.t_ptr)
 
-#     def value(self, i):
-#         return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.t_ptr, i)
+    def value(self, i):
+        return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.ptr.t_ptr, i)
 
-#     def __del__(self):
-#         getattr(mydll, "cached_destroy_{}".format(get_rust_type(self.T)))(self.b_ptr)
-#         self.b_ptr = None
-#         getattr(mydll, "indicator_destroy_{}".format(get_rust_type(self.T)))(self.t_ptr)
-#         self.t_ptr = None
+    def __del__(self):
+        getattr(mydll, "cached_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
+        self.ptr = None
 
 # # OrderingValue = c_int
 # # getattr(mydll, "indicator_value_{}".format("ordering")).argtypes = [c_void_p, c_int]

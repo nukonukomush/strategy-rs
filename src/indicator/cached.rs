@@ -47,43 +47,73 @@ where
     }
 }
 
-// use std::mem::drop;
-// use std::os::raw::*;
-// use std::ptr;
-// use std::rc::Rc;
+mod ffi {
+    use super::*;
+    use crate::indicator::ffi::*;
+    use crate::indicator::*;
+    use crate::time::ffi::*;
+    use std::mem::drop;
+    use std::os::raw::*;
+    use std::ptr;
+    use std::rc::Rc;
 
-// macro_rules! define_cached_methods {
-//     ($t:ty, $new:ident, $trait:ident, $destroy:ident) => {
-//         #[no_mangle]
-//         pub unsafe extern "C" fn $new(
-//             source: *mut IndicatorPtr<$t>,
-//         ) -> *mut Rc<RefCell<Cached<IndicatorPtr<$t>, $t>>> {
-//             let source = (*source).clone();
-//             let cached = Rc::new(RefCell::new(Cached::new(source)));
-//             Box::into_raw(Box::new(cached))
-//         }
+    #[repr(C)]
+    pub struct Ptr<V> {
+        b_ptr: *mut Rc<RefCell<LRUCache<VarGranularity, V, IndicatorPtr<VarGranularity, V>>>>,
+        t_ptr: *mut IndicatorPtr<VarGranularity, V>,
+    }
 
-//         #[no_mangle]
-//         pub unsafe extern "C" fn $trait(
-//             obj: *mut Rc<RefCell<Cached<IndicatorPtr<$t>, $t>>>,
-//         ) -> *mut IndicatorPtr<$t> {
-//             if obj.is_null() {
-//                 return ptr::null_mut();
-//             }
-//             Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
-//         }
+    macro_rules! define_cached_methods {
+        ($t:ty, $new:ident, $trait:ident, $destroy:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $new(
+                capacity: c_int,
+                source: *mut IndicatorPtr<VarGranularity, $t>,
+            ) -> Ptr<$t> {
+                let source = (*source).clone();
+                let ptr = Rc::new(RefCell::new(LRUCache::new(capacity as usize, source)));
+                Ptr {
+                    b_ptr: Box::into_raw(Box::new(ptr.clone())),
+                    t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
+                }
+            }
 
-//         #[no_mangle]
-//         pub unsafe extern "C" fn $destroy(
-//             obj: *mut Rc<RefCell<Cached<IndicatorPtr<$t>, $t>>>,
-//         ) {
-//             if obj.is_null() {
-//                 return;
-//             }
-//             let boxed = Box::from_raw(obj);
-//             drop(boxed);
-//         }
-//     };
-// }
+            #[no_mangle]
+            pub unsafe extern "C" fn $destroy(ptr: Ptr<$t>) {
+                destroy(ptr.b_ptr);
+                destroy(ptr.t_ptr);
+            }
+            // #[no_mangle]
+            // pub unsafe extern "C" fn $new(
+            //     source: *mut IndicatorPtr<$t>,
+            // ) -> *mut Rc<RefCell<Cached<IndicatorPtr<$t>, $t>>> {
+            //     let source = (*source).clone();
+            //     let cached = Rc::new(RefCell::new(Cached::new(source)));
+            //     Box::into_raw(Box::new(cached))
+            // }
 
-// define_cached_methods!(f64, cached_new_f64, cached_trait_f64, cached_destroy_f64);
+            // #[no_mangle]
+            // pub unsafe extern "C" fn $trait(
+            //     obj: *mut Rc<RefCell<Cached<IndicatorPtr<$t>, $t>>>,
+            // ) -> *mut IndicatorPtr<$t> {
+            //     if obj.is_null() {
+            //         return ptr::null_mut();
+            //     }
+            //     Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
+            // }
+
+            // #[no_mangle]
+            // pub unsafe extern "C" fn $destroy(
+            //     obj: *mut Rc<RefCell<Cached<IndicatorPtr<$t>, $t>>>,
+            // ) {
+            //     if obj.is_null() {
+            //         return;
+            //     }
+            //     let boxed = Box::from_raw(obj);
+            //     drop(boxed);
+            // }
+        };
+    }
+
+    define_cached_methods!(f64, cached_new_f64, cached_trait_f64, cached_destroy_f64);
+}
