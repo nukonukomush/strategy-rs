@@ -60,8 +60,14 @@ def Option(T):
 class Time(Structure):
     _fields_ = [
         ("time", c_longlong),
-        ("granularity", c_char_p),
+        ("granularity", c_longlong),
     ]
+
+    def __add__(self, other):
+        if type(other) == int:
+            return Time(self.time + self.granularity * other, self.granularity)
+        else:
+            return None
 
 class Ptr(Structure):
     _fields_ = [

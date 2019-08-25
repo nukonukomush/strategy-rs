@@ -32,7 +32,34 @@ define_granularity!(D1, 60 * 60 * 24, |t| {
     dt.hour() == 0 && dt.minute() == 0 && dt.second() == 0
 });
 
+#[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
+pub struct VarGranularity(i64);
+impl VarGranularity {
+    pub fn new(d: i64) -> Self {
+        debug_assert_ne!(d, 0);
+        VarGranularity(d)
+    }
+}
+impl Granularity for VarGranularity {
+    fn unit_duration(&self) -> i64 {
+        self.0
+    }
+    fn is_valid(&self, t: i64) -> bool {
+        println!("{}", t % self.0);
+        t % self.0 == 0
+    }
+}
 
+// #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
+// pub struct GranularityPtr(Box<dyn Granularity>);
+// impl Granularity for DynamicGranularity {
+//     fn unit_duration(&self) -> i64 {
+//         self.0.unit_duration()
+//     }
+//     fn is_valid(&self, t: i64) -> bool {
+//         self.0.is_valid(t)
+//     }
+// }
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
 pub struct Time<G>(i64, G);
@@ -78,36 +105,19 @@ impl<G: Granularity + Copy> Sub<i64> for Time<G> {
 
 pub mod ffi {
     use super::*;
-    use std::ffi::CString;
-    use std::os::raw::c_char;
 
-    // #[repr(C)]
-    // pub struct CTime {
-    //     time: i64,
-    //     // granularity: CGranularity,
-    // }
+    #[repr(C)]
+    pub struct CTime {
+        time: i64,
+        granularity: VarGranularity,
+    }
 
-    // use std::convert::Into;
-    // impl<G: Granularity> Into<Time<G>> for CTime {
-    //     fn into(self) -> Time<G> {
-    //         Time::new(self.time)
-    //     }
-    // }
-
-    // // #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Hash)]
-    // // #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Hash)]
-    // pub struct CGranularity(Box<dyn Granularity>);
-    // // pub struct CGranularity(*const c_char);
-    // impl Granularity for CGranularity {
-    //     fn unit_duration() -> i64 {
-    //         5
-    //     }
-    //     fn is_valid(t: i64) -> bool {
-    //         true
-    //     }
-    // }
-
-
+    use std::convert::Into;
+    impl Into<Time<VarGranularity>> for CTime {
+        fn into(self) -> Time<VarGranularity> {
+            Time::new(self.time, self.granularity)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -138,6 +148,19 @@ mod tests {
     fn test_new_d1_ng() {
         let dt = "2019-01-01T01:00:00Z".parse::<DateTime<Utc>>().unwrap();
         Time::new(dt.timestamp(), D1);
+    }
+
+    #[test]
+    fn test_new_var_ok() {
+        let dt = "2019-01-01T07:00:05Z".parse::<DateTime<Utc>>().unwrap();
+        Time::new(dt.timestamp(), VarGranularity::new(7));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_new_var_ng() {
+        let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        Time::new(dt.timestamp(), VarGranularity::new(7));
     }
 
     #[test]

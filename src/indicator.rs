@@ -108,18 +108,18 @@ pub mod ffi {
         drop(boxed);
     }
 
-    // #[no_mangle]
-    // pub unsafe extern "C" fn indicator_value_f64(
-    //     ptr: *mut IndicatorPtr<S5, f64>,
-    //     time: CTime,
-    // ) -> COption<f64> {
-    //     if ptr.is_null() {
-    //         return COption::none();
-    //     }
+    #[no_mangle]
+    pub unsafe extern "C" fn indicator_value_f64(
+        ptr: *mut IndicatorPtr<VarGranularity, f64>,
+        time: CTime,
+    ) -> COption<f64> {
+        if ptr.is_null() {
+            return COption::none();
+        }
 
-    //     let ptr = &*ptr;
-    //     COption::from_option(ptr.borrow().value(time.into()))
-    // }
+        let ptr = &*ptr;
+        COption::from_option(ptr.borrow().value(time.into()))
+    }
 }
 
 pub mod cached;
