@@ -85,6 +85,7 @@ pub mod tests {
 
 pub mod cached;
 pub mod vec;
+pub mod convert_granularity;
 pub mod sma;
 // pub mod ordering;
 // pub mod cross;
