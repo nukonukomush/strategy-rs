@@ -9,6 +9,18 @@ pub trait Indicator<G, V> {
     fn granularity(&self) -> G;
 }
 
+impl<G, V> Indicator<G, V> for &dyn Indicator<G, V> {
+    #[allow(unconditional_recursion)]
+    fn value(&self, time: Time<G>) -> Option<V> {
+        self.value(time)
+    }
+
+    #[allow(unconditional_recursion)]
+    fn granularity(&self) -> G {
+        self.granularity()
+    }
+}
+
 impl<G, V, I> Indicator<G, V> for RefCell<I>
 where
     V: Clone,
@@ -147,6 +159,8 @@ pub mod ffi {
 }
 
 pub mod cached;
+pub mod stream;
+pub mod complement;
 pub mod convert_granularity;
 pub mod cross;
 pub mod ordering;

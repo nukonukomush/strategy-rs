@@ -245,3 +245,23 @@ class Cross:
     def __del__(self):
         getattr(mydll, "cross_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
         self.ptr = None
+
+class Cmpl:
+    for T, t_str in {
+        c_double: "f64",
+    }.items():
+        getattr(mydll, "cmpl_new_{}".format(t_str)).argtypes = [c_void_p, c_int, c_int]
+        getattr(mydll, "cmpl_new_{}".format(t_str)).restype = Ptr
+        getattr(mydll, "cmpl_destroy_{}".format(t_str)).argtypes = [Ptr]
+        getattr(mydll, "cmpl_destroy_{}".format(t_str)).restype = None
+
+    def __init__(self, T, source, max_loop, capacity):
+        self.T = T
+        self.ptr = getattr(mydll, "cmpl_new_{}".format(get_rust_type(self.T)))(source.ptr.t_ptr, max_loop, capacity)
+
+    def value(self, i):
+        return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.ptr.t_ptr, i)
+
+    def __del__(self):
+        getattr(mydll, "cmpl_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
+        self.ptr = None

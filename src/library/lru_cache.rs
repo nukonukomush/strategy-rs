@@ -7,6 +7,13 @@ pub struct LRUCache<K, V> {
     linked_hash_map: LinkedHashMap<K, V>,
 }
 
+impl<K: Hash + Eq + std::fmt::Debug, V: std::fmt::Debug> std::fmt::Debug for LRUCache<K, V>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "LRUCache {{ capacity: {:?}, data: {:?} }}", self.capacity, self.linked_hash_map)
+    }
+}
+
 impl<K: Hash + Eq, V> LRUCache<K, V> {
     pub fn new(capacity: usize) -> Self {
         Self {

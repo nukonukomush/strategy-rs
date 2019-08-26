@@ -103,3 +103,24 @@ def test_cross():
     result = [cross.value(offset + i) for i in range(0, 11)]
 
     assert result == expect
+
+def test_cmpl():
+    offset = ffi.Time(0, 5)
+    source = [1, 2, None, 4, 5]
+    expect = [
+        ffi.Option(c_double).some(1),
+        ffi.Option(c_double).some(2),
+        ffi.Option(c_double).some(2),
+        ffi.Option(c_double).some(4),
+        ffi.Option(c_double).some(5),
+        ffi.Option(c_double).some(5),
+     ]
+
+    h = ffi.Hash(c_double, 5)
+    for i, v in enumerate(source):
+        if v is not None:
+            h.set(offset + i, v)
+    cmpl = ffi.Cmpl(c_double, h, 10, 10)
+    result = [cmpl.value(offset + i) for i in range(0, 6)]
+
+    assert result == expect
