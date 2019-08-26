@@ -153,9 +153,13 @@ pub mod ffi {
         };
     }
     define_value!(f64, indicator_value_f64);
+    define_value!(i32, indicator_value_i32);
     use cross::ffi::*;
     use cross::*;
     define_value_convert!(CrossState, CCrossState, indicator_value_cross);
+    use crate::position::*;
+    use crate::position::ffi::*;
+    define_value_convert!(SimplePosition, CSimplePosition, indicator_value_simpleposition);
 }
 
 pub mod cached;

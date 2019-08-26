@@ -288,3 +288,22 @@ class Func:
             return self.value_func(*args)
         return None
 
+class Slope:
+    for T, t_str in {
+        c_double: "f64",
+    }.items():
+        getattr(mydll, "slope_new_{}".format(t_str)).argtypes = [c_void_p]
+        getattr(mydll, "slope_new_{}".format(t_str)).restype = Ptr
+        getattr(mydll, "slope_destroy_{}".format(t_str)).argtypes = [Ptr]
+        getattr(mydll, "slope_destroy_{}".format(t_str)).restype = None
+
+    def __init__(self, T, source):
+        self.T = T
+        self.ptr = getattr(mydll, "slope_new_{}".format(get_rust_type(self.T)))(source.ptr.t_ptr)
+
+    def value(self, i):
+        return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.ptr.t_ptr, i)
+
+    def __del__(self):
+        getattr(mydll, "slope_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
+        self.ptr = None

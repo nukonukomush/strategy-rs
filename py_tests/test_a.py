@@ -148,3 +148,21 @@ def test_func():
     result = [func.value(offset + i) for i in range(0, 6)]
 
     assert result == expect
+
+def test_slope():
+    offset = ffi.Time(0, 10)
+    source = [1, 2, 4, 8, 6]
+    expect = [
+        ffi.Option(c_double).none(),
+        ffi.Option(c_double).some(1),
+        ffi.Option(c_double).some(2),
+        ffi.Option(c_double).some(4),
+        ffi.Option(c_double).some(-2),
+        ffi.Option(c_double).none(),
+    ]
+
+    vec = ffi.Vec(offset, c_double, source)
+    slope = ffi.Slope(c_double, vec)
+    result = [slope.value(offset + i) for i in range(0, 6)]
+
+    assert result == expect
