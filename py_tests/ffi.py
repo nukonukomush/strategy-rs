@@ -38,6 +38,11 @@ def Option_repr(self):
     else:
         return "None"
 
+def Option_nullable(self):
+    if self.is_some:
+        return self.value
+    return None
+
 option_types = {}
 for T, t_str in type_map.items():
     def def_option(t):
@@ -46,6 +51,7 @@ for T, t_str in type_map.items():
         option_types[T] = type(option_t_str, (Structure,), {
             "__eq__": Option_eq,
             "__repr__": Option_repr,
+            "nullable": Option_nullable,
         })
         option_types[T]._fields_ = [
             ("is_some", c_byte),
@@ -81,6 +87,42 @@ class Time(Structure):
         if isinstance(other, int):
             return Time(self.time + self.granularity * other, self.granularity)
         return None
+
+    def dt(self):
+        return datetime.fromtimestamp(self.time)
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        if self.granularity != other.granularity:
+            return False
+        return self.time == other.time
+
+    def __lt__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        if self.granularity != other.granularity:
+            return False
+        return self.time < other.time
+
+    def __le__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        if self.granularity != other.granularity:
+            return False
+        return self.time <= other.time
+
+    def __repr__(self):
+        return "({}, {})".format(self.dt().strftime("%Y-%m-%d %H:%M:%S"), self.granularity)
+
+    def range_to(self, end):
+        def gen():
+            t = self
+            while t < end:
+                yield t
+                t += 1
+        return gen()
+
 
 class Ptr(Structure):
     _fields_ = [
