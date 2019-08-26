@@ -60,7 +60,7 @@ def test_sma():
     assert result == expect
 
 def test_cross():
-    offset = ffi.Time(0, 60)
+    offset = ffi.Time("2019-01-01 00:00:00", 60)
     source_1 = [0, 0, 2, 2, 0, 1, 1, 2, 1, 0]
     source_2 = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     expect = [

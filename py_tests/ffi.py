@@ -62,17 +62,25 @@ def Option(T):
     else:
         raise TypeError("type {} is not available for Option.".format(T))
 
+from datetime import datetime
 class Time(Structure):
     _fields_ = [
         ("time", c_longlong),
         ("granularity", c_longlong),
     ]
 
+    def __init__(self, time, granularity):
+        if isinstance(time, str):
+            time = int(datetime.strptime(time, "%Y-%m-%d %H:%M:%S").timestamp())
+        elif isinstance(time, datetime):
+            time = int(time.timestamp())
+
+        super(Time, self).__init__(time, granularity)
+
     def __add__(self, other):
-        if type(other) == int:
+        if isinstance(other, int):
             return Time(self.time + self.granularity * other, self.granularity)
-        else:
-            return None
+        return None
 
 class Ptr(Structure):
     _fields_ = [
