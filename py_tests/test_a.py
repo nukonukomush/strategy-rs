@@ -124,3 +124,27 @@ def test_cmpl():
     result = [cmpl.value(offset + i) for i in range(0, 6)]
 
     assert result == expect
+
+
+def test_func():
+    offset = ffi.Time("2019-01-01 00:00:00", 60)
+    source_1 = [1, 2, 3, 4, 5]
+    source_2 = [0, -1, 0, 1, 0]
+    expect = [
+        ffi.Option(c_double).some(0),
+        ffi.Option(c_double).some(2),
+        ffi.Option(c_double).some(0),
+        ffi.Option(c_double).some(4),
+        ffi.Option(c_double).some(0),
+        ffi.Option(c_double).none(),
+    ]
+    vec_1 = ffi.Vec(offset, c_double, source_1)
+    vec_2 = ffi.Vec(offset, c_double, source_2)
+
+    def f(v1, v2):
+        return v1 * abs(v2)
+
+    func = ffi.Func(c_double, f, vec_1, vec_2)
+    result = [func.value(offset + i) for i in range(0, 6)]
+
+    assert result == expect

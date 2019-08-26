@@ -43,6 +43,11 @@ def Option_nullable(self):
         return self.value
     return None
 
+def Option_from_nullable(T, n):
+    if n is None:
+        return Option(T).none()
+    return Option(T).some(n)
+
 option_types = {}
 for T, t_str in type_map.items():
     def def_option(t):
@@ -59,6 +64,7 @@ for T, t_str in type_map.items():
         ]
         option_types[T].some = lambda v: option_types[T](1, v)
         option_types[T].none = lambda : option_types[T](0, default(T))
+        option_types[T].from_nullable = Option_from_nullable
         option_types[T].T = T
     def_option(T)
 
@@ -265,3 +271,20 @@ class Cmpl:
     def __del__(self):
         getattr(mydll, "cmpl_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
         self.ptr = None
+
+class Func:
+    def __init__(self, T, value_func, *sources):
+        self.T = T
+        self.sources = sources
+        self.value_func = value_func
+
+    def value(self, i):
+        return Option(self.T).from_nullable(self.T, self.value_nullable(i))
+
+    def value_nullable(self, i):
+        args = [source.value(i).nullable() for source in self.sources]
+        none_args = [arg for arg in args if arg is None]
+        if len(none_args) == 0:
+            return self.value_func(*args)
+        return None
+

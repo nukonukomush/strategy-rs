@@ -166,3 +166,4 @@ pub mod cross;
 pub mod ordering;
 pub mod sma;
 pub mod vec;
+pub mod func;
