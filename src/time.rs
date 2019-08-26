@@ -45,7 +45,6 @@ impl Granularity for VarGranularity {
         self.0
     }
     fn is_valid(&self, t: i64) -> bool {
-        println!("{}", t % self.0);
         t % self.0 == 0
     }
 }
@@ -107,6 +106,7 @@ pub mod ffi {
     use super::*;
 
     #[repr(C)]
+    #[derive(Clone, Copy, PartialEq, Eq)]
     pub struct CTime {
         time: i64,
         granularity: VarGranularity,

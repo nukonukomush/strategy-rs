@@ -34,8 +34,8 @@ where
     I: Indicator<G, std::cmp::Ordering>,
 {
     fn value(&self, time: Time<G>) -> Option<CrossState> {
-        use CrossState::*;
         use std::cmp::Ordering::*;
+        use CrossState::*;
 
         // TODO: refactor
         if let Some(current_ord) = self.source.value(time) {
@@ -75,124 +75,173 @@ where
     }
 }
 
-#[repr(C)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum CrossState {
-    NotCrossed = 0,
-    LtToGt = 1,
-    GtToLt = -1,
+    NotCrossed,
+    LtToGt,
+    GtToLt,
 }
 
-impl Default for CrossState {
-    fn default() -> Self {
-        CrossState::NotCrossed
+pub mod ffi {
+    use super::*;
+    use crate::indicator::ffi::*;
+    use crate::indicator::*;
+    use crate::time::ffi::*;
+    use std::cell::RefCell;
+    use std::mem::drop;
+    use std::os::raw::*;
+    use std::ptr;
+    use std::rc::Rc;
+
+    #[repr(C)]
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub enum CCrossState {
+        NotCrossed = 0,
+        LtToGt = 1,
+        GtToLt = -1,
     }
+    impl Default for CCrossState {
+        fn default() -> Self {
+            CCrossState::NotCrossed
+        }
+    }
+
+    impl From<CrossState> for CCrossState {
+        fn from(s: CrossState) -> Self {
+            match s {
+                CrossState::NotCrossed => CCrossState::NotCrossed,
+                CrossState::LtToGt => CCrossState::LtToGt,
+                CrossState::GtToLt => CCrossState::GtToLt,
+            }
+        }
+    }
+
+    #[repr(C)]
+    pub struct Ptr<V> {
+        b_ptr: *mut Rc<
+            RefCell<
+                Cross<
+                    VarGranularity,
+                    Ordering<VarGranularity, V, IndicatorPtr<V>, IndicatorPtr<V>>,
+                >,
+            >,
+        >,
+        t_ptr: *mut IndicatorPtr<CrossState>,
+    }
+
+    macro_rules! define_cross_methods {
+        ($t:ty, $new:ident, $destroy:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $new(
+                source_1: *mut IndicatorPtr<$t>,
+                source_2: *mut IndicatorPtr<$t>,
+            ) -> Ptr<$t> {
+                let source_1 = (*source_1).clone();
+                let source_2 = (*source_2).clone();
+                let ptr = Rc::new(RefCell::new(Cross::new(source_1, source_2)));
+                Ptr {
+                    b_ptr: Box::into_raw(Box::new(ptr.clone())),
+                    t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
+                }
+            }
+
+            #[no_mangle]
+            pub unsafe extern "C" fn $destroy(ptr: Ptr<$t>) {
+                destroy(ptr.b_ptr);
+                destroy(ptr.t_ptr);
+            }
+        };
+    }
+
+    define_cross_methods!(f64, cross_new_f64, cross_destroy_f64);
+    // #[no_mangle]
+    // pub unsafe extern "C" fn cross_new_f64(
+    //     source_1: *mut IndicatorPtr<f64>,
+    //     source_2: *mut IndicatorPtr<f64>,
+    // ) -> *mut CrossPtr<f64> {
+    //     let source_1 = (*source_1).clone();
+    //     let source_2 = (*source_2).clone();
+    //     let cross = Rc::new(RefCell::new(cross(source_1, source_2)));
+    //     Box::into_raw(Box::new(cross))
+    // }
+
+    // #[no_mangle]
+    // pub unsafe extern "C" fn cross_trait_f64(obj: *mut CrossPtr<f64>) -> *mut IndicatorPtr<CrossState> {
+    //     if obj.is_null() {
+    //         return ptr::null_mut();
+    //     }
+    //     Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
+    // }
+
+    // #[no_mangle]
+    // pub unsafe extern "C" fn cross_destroy_f64(obj: *mut CrossPtr<f64>) {
+    //     if obj.is_null() {
+    //         return;
+    //     }
+    //     let boxed = Box::from_raw(obj);
+    //     drop(boxed);
+    // }
+
+    // // #[no_mangle]
+    // // pub unsafe extern "C" fn cross_trait_ordering(
+    // //     obj: *mut Rc<RefCell<Cross<IndicatorPtr<OrderingValue>>>>,
+    // // ) -> *mut IndicatorPtr<CrossState> {
+    // //     if obj.is_null() {
+    // //         return ptr::null_mut();
+    // //     }
+    // //     Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
+    // // }
+
+    // // #[no_mangle]
+    // // pub unsafe extern "C" fn cross_destroy_ordering(
+    // //     obj: *mut Rc<RefCell<Cross<IndicatorPtr<OrderingValue>>>>,
+    // // ) {
+    // //     if obj.is_null() {
+    // //         return;
+    // //     }
+    // //     let boxed = Box::from_raw(obj);
+    // //     drop(boxed);
+    // // }
+
+    // // macro_rules! define_cross_methods {
+    // //     ($t:ty, $new:ident, $trait:ident, $destroy:ident) => {
+    // //         #[no_mangle]
+    // //         pub unsafe extern "C" fn $new(
+    // //             source: *mut IndicatorPtr<$t>,
+    // //         ) -> *mut Rc<RefCell<Cross<IndicatorPtr<$t>>>> {
+    // //             let source = (*source).clone();
+    // //             let cross = Rc::new(RefCell::new(Cross::new(source)));
+    // //             Box::into_raw(Box::new(cross))
+    // //         }
+
+    // //         #[no_mangle]
+    // //         pub unsafe extern "C" fn $trait(
+    // //             obj: *mut Rc<RefCell<Cross<IndicatorPtr<$t>>>>,
+    // //         ) -> *mut IndicatorPtr<CrossState> {
+    // //             if obj.is_null() {
+    // //                 return ptr::null_mut();
+    // //             }
+    // //             Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
+    // //         }
+
+    // //         #[no_mangle]
+    // //         pub unsafe extern "C" fn $destroy(obj: *mut Rc<RefCell<Cross<IndicatorPtr<$t>, $t>>>) {
+    // //             if obj.is_null() {
+    // //                 return;
+    // //             }
+    // //             let boxed = Box::from_raw(obj);
+    // //             drop(boxed);
+    // //         }
+    // //     };
+    // // }
+
+    // // define_cross_methods!(
+    // //     Ordering,
+    // //     cross_new_f64,
+    // //     cross_trait_f64,
+    // //     cross_destroy_f64
+    // // );
 }
-
-// use std::cell::RefCell;
-// use std::mem::drop;
-// use std::os::raw::*;
-// use std::ptr;
-// use std::rc::Rc;
-
-// // #[no_mangle]
-// // pub unsafe extern "C" fn cross_new_ordering(
-// //     source: *mut IndicatorPtr<OrderingValue>,
-// // ) -> *mut Rc<RefCell<Cross<IndicatorPtr<OrderingValue>>>> {
-// //     let source = (*source).clone();
-// //     let cross = Rc::new(RefCell::new(Cross::new(source)));
-// //     Box::into_raw(Box::new(cross))
-// // }
-
-// type CrossPtr<V> = Rc<RefCell<Cross<Ordering<IndicatorPtr<V>, IndicatorPtr<V>, V>>>>;
-
-// #[no_mangle]
-// pub unsafe extern "C" fn cross_new_f64(
-//     source_1: *mut IndicatorPtr<f64>,
-//     source_2: *mut IndicatorPtr<f64>,
-// ) -> *mut CrossPtr<f64> {
-//     let source_1 = (*source_1).clone();
-//     let source_2 = (*source_2).clone();
-//     let cross = Rc::new(RefCell::new(cross(source_1, source_2)));
-//     Box::into_raw(Box::new(cross))
-// }
-
-// #[no_mangle]
-// pub unsafe extern "C" fn cross_trait_f64(obj: *mut CrossPtr<f64>) -> *mut IndicatorPtr<CrossState> {
-//     if obj.is_null() {
-//         return ptr::null_mut();
-//     }
-//     Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
-// }
-
-// #[no_mangle]
-// pub unsafe extern "C" fn cross_destroy_f64(obj: *mut CrossPtr<f64>) {
-//     if obj.is_null() {
-//         return;
-//     }
-//     let boxed = Box::from_raw(obj);
-//     drop(boxed);
-// }
-
-// // #[no_mangle]
-// // pub unsafe extern "C" fn cross_trait_ordering(
-// //     obj: *mut Rc<RefCell<Cross<IndicatorPtr<OrderingValue>>>>,
-// // ) -> *mut IndicatorPtr<CrossState> {
-// //     if obj.is_null() {
-// //         return ptr::null_mut();
-// //     }
-// //     Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
-// // }
-
-// // #[no_mangle]
-// // pub unsafe extern "C" fn cross_destroy_ordering(
-// //     obj: *mut Rc<RefCell<Cross<IndicatorPtr<OrderingValue>>>>,
-// // ) {
-// //     if obj.is_null() {
-// //         return;
-// //     }
-// //     let boxed = Box::from_raw(obj);
-// //     drop(boxed);
-// // }
-
-// // macro_rules! define_cross_methods {
-// //     ($t:ty, $new:ident, $trait:ident, $destroy:ident) => {
-// //         #[no_mangle]
-// //         pub unsafe extern "C" fn $new(
-// //             source: *mut IndicatorPtr<$t>,
-// //         ) -> *mut Rc<RefCell<Cross<IndicatorPtr<$t>>>> {
-// //             let source = (*source).clone();
-// //             let cross = Rc::new(RefCell::new(Cross::new(source)));
-// //             Box::into_raw(Box::new(cross))
-// //         }
-
-// //         #[no_mangle]
-// //         pub unsafe extern "C" fn $trait(
-// //             obj: *mut Rc<RefCell<Cross<IndicatorPtr<$t>>>>,
-// //         ) -> *mut IndicatorPtr<CrossState> {
-// //             if obj.is_null() {
-// //                 return ptr::null_mut();
-// //             }
-// //             Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
-// //         }
-
-// //         #[no_mangle]
-// //         pub unsafe extern "C" fn $destroy(obj: *mut Rc<RefCell<Cross<IndicatorPtr<$t>, $t>>>) {
-// //             if obj.is_null() {
-// //                 return;
-// //             }
-// //             let boxed = Box::from_raw(obj);
-// //             drop(boxed);
-// //         }
-// //     };
-// // }
-
-// // define_cross_methods!(
-// //     Ordering,
-// //     cross_new_f64,
-// //     cross_trait_f64,
-// //     cross_destroy_f64
-// // );
 
 #[cfg(test)]
 mod tests {

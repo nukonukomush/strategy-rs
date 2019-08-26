@@ -9,26 +9,6 @@ pub trait Indicator<G, V> {
     fn granularity(&self) -> G;
 }
 
-#[derive(Clone)]
-pub struct IndicatorPtr<G, V>(pub Rc<RefCell<dyn Indicator<G, V>>>);
-
-impl<G, V> Indicator<G, V> for IndicatorPtr<G, V> {
-    fn value(&self, time: Time<G>) -> Option<V> {
-        self.borrow().value(time)
-    }
-    fn granularity(&self) -> G {
-        self.borrow().granularity()
-    }
-}
-
-use std::ops::Deref;
-impl<G, V> Deref for IndicatorPtr<G, V> {
-    type Target = Rc<RefCell<dyn Indicator<G, V>>>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl<G, V, I> Indicator<G, V> for RefCell<I>
 where
     V: Clone,
@@ -108,18 +88,62 @@ pub mod ffi {
         drop(boxed);
     }
 
-    #[no_mangle]
-    pub unsafe extern "C" fn indicator_value_f64(
-        ptr: *mut IndicatorPtr<VarGranularity, f64>,
-        time: CTime,
-    ) -> COption<f64> {
-        if ptr.is_null() {
-            return COption::none();
-        }
+    #[derive(Clone)]
+    pub struct IndicatorPtr<V>(pub Rc<RefCell<dyn Indicator<VarGranularity, V>>>);
 
-        let ptr = &*ptr;
-        COption::from_option(ptr.borrow().value(time.into()))
+    impl<V> Indicator<VarGranularity, V> for IndicatorPtr<V> {
+        fn value(&self, time: Time<VarGranularity>) -> Option<V> {
+            self.borrow().value(time)
+        }
+        fn granularity(&self) -> VarGranularity {
+            self.borrow().granularity()
+        }
     }
+
+    use std::ops::Deref;
+    impl<V> Deref for IndicatorPtr<V> {
+        type Target = Rc<RefCell<dyn Indicator<VarGranularity, V>>>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    macro_rules! define_value {
+        ($t:ident, $value:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $value(
+                ptr: *mut IndicatorPtr<$t>,
+                time: CTime,
+            ) -> COption<$t> {
+                if ptr.is_null() {
+                    return COption::none();
+                }
+
+                let ptr = &*ptr;
+                COption::from_option(ptr.borrow().value(time.into()))
+            }
+        };
+    }
+    macro_rules! define_value_convert {
+        ($t1:ident, $t2:ident, $value:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $value(
+                ptr: *mut IndicatorPtr<$t1>,
+                time: CTime,
+            ) -> COption<$t2> {
+                if ptr.is_null() {
+                    return COption::none();
+                }
+
+                let ptr = &*ptr;
+                COption::from_option(ptr.borrow().value(time.into()).map($t2::from))
+            }
+        };
+    }
+    define_value!(f64, indicator_value_f64);
+    use cross::ffi::*;
+    use cross::*;
+    define_value_convert!(CrossState, CCrossState, indicator_value_cross);
 }
 
 pub mod cached;
@@ -128,48 +152,3 @@ pub mod cross;
 pub mod ordering;
 pub mod sma;
 pub mod vec;
-
-// #[no_mangle]
-// pub unsafe extern "C" fn indicator_value_f64(
-//     ptr: *mut IndicatorPtr<f64>,
-//     i: c_int,
-// ) -> COption<f64> {
-//     if ptr.is_null() {
-//         return COption::none();
-//     }
-
-//     let ptr = &*ptr;
-//     COption::from_option(ptr.borrow().value(i as isize))
-// }
-
-// #[no_mangle]
-// pub unsafe extern "C" fn indicator_destroy_f64(obj: *mut IndicatorPtr<f64>) {
-//     if obj.is_null() {
-//         return;
-//     }
-//     let boxed = Box::from_raw(obj);
-//     drop(boxed);
-// }
-
-// use cross::CrossState;
-// #[no_mangle]
-// pub unsafe extern "C" fn indicator_value_cross(
-//     ptr: *mut IndicatorPtr<CrossState>,
-//     i: c_int,
-// ) -> COption<CrossState> {
-//     if ptr.is_null() {
-//         return COption::none();
-//     }
-
-//     let ptr = &*ptr;
-//     COption::from_option(ptr.borrow().value(i as isize))
-// }
-
-// #[no_mangle]
-// pub unsafe extern "C" fn indicator_destroy_cross(obj: *mut IndicatorPtr<CrossState>) {
-//     if obj.is_null() {
-//         return;
-//     }
-//     let boxed = Box::from_raw(obj);
-//     drop(boxed);
-// }

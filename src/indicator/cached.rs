@@ -59,16 +59,16 @@ mod ffi {
 
     #[repr(C)]
     pub struct Ptr<V> {
-        b_ptr: *mut Rc<RefCell<LRUCache<VarGranularity, V, IndicatorPtr<VarGranularity, V>>>>,
-        t_ptr: *mut IndicatorPtr<VarGranularity, V>,
+        b_ptr: *mut Rc<RefCell<LRUCache<VarGranularity, V, IndicatorPtr<V>>>>,
+        t_ptr: *mut IndicatorPtr<V>,
     }
 
     macro_rules! define_cached_methods {
-        ($t:ty, $new:ident, $trait:ident, $destroy:ident) => {
+        ($t:ty, $new:ident, $destroy:ident) => {
             #[no_mangle]
             pub unsafe extern "C" fn $new(
                 capacity: c_int,
-                source: *mut IndicatorPtr<VarGranularity, $t>,
+                source: *mut IndicatorPtr<$t>,
             ) -> Ptr<$t> {
                 let source = (*source).clone();
                 let ptr = Rc::new(RefCell::new(LRUCache::new(capacity as usize, source)));
@@ -83,37 +83,8 @@ mod ffi {
                 destroy(ptr.b_ptr);
                 destroy(ptr.t_ptr);
             }
-            // #[no_mangle]
-            // pub unsafe extern "C" fn $new(
-            //     source: *mut IndicatorPtr<$t>,
-            // ) -> *mut Rc<RefCell<Cached<IndicatorPtr<$t>, $t>>> {
-            //     let source = (*source).clone();
-            //     let cached = Rc::new(RefCell::new(Cached::new(source)));
-            //     Box::into_raw(Box::new(cached))
-            // }
-
-            // #[no_mangle]
-            // pub unsafe extern "C" fn $trait(
-            //     obj: *mut Rc<RefCell<Cached<IndicatorPtr<$t>, $t>>>,
-            // ) -> *mut IndicatorPtr<$t> {
-            //     if obj.is_null() {
-            //         return ptr::null_mut();
-            //     }
-            //     Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
-            // }
-
-            // #[no_mangle]
-            // pub unsafe extern "C" fn $destroy(
-            //     obj: *mut Rc<RefCell<Cached<IndicatorPtr<$t>, $t>>>,
-            // ) {
-            //     if obj.is_null() {
-            //         return;
-            //     }
-            //     let boxed = Box::from_raw(obj);
-            //     drop(boxed);
-            // }
         };
     }
 
-    define_cached_methods!(f64, cached_new_f64, cached_trait_f64, cached_destroy_f64);
+    define_cached_methods!(f64, cached_new_f64, cached_destroy_f64);
 }

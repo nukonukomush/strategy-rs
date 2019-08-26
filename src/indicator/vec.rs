@@ -90,7 +90,7 @@ mod ffi {
     #[repr(C)]
     pub struct Ptr<V> {
         b_ptr: *mut Rc<RefCell<VecIndicator<VarGranularity, V>>>,
-        t_ptr: *mut IndicatorPtr<VarGranularity, V>,
+        t_ptr: *mut IndicatorPtr<V>,
     }
 
     macro_rules! define_vec_methods {
@@ -117,36 +117,6 @@ mod ffi {
                 destroy(ptr.b_ptr);
                 destroy(ptr.t_ptr);
             }
-
-            // #[no_mangle]
-            // pub unsafe extern "C" fn $new(
-            //     array: *const $t,
-            //     length: c_int,
-            // ) -> *mut Rc<RefCell<Vec<$t>>> {
-            //     let array: &[$t] = std::slice::from_raw_parts(array, length as usize);
-            //     let obj = Box::new(Rc::new(RefCell::new(array.to_vec())));
-            //     Box::into_raw(obj)
-            // }
-
-            // #[no_mangle]
-            // pub unsafe extern "C" fn $trait(
-            //     obj: *mut Rc<RefCell<Vec<$t>>>,
-            // ) -> *mut IndicatorPtr<$t> {
-            //     if obj.is_null() {
-            //         return ptr::null_mut();
-            //     }
-            //     Box::into_raw(Box::new(IndicatorPtr((*obj).clone())))
-            // }
-
-            // #[no_mangle]
-            // pub unsafe extern "C" fn $destroy(obj: *mut Rc<RefCell<Vec<$t>>>) {
-            //     if obj.is_null() {
-            //         return;
-            //     }
-            //     // ここ Box にする必要ある？？
-            //     let boxed = Box::from_raw(obj);
-            //     drop(boxed);
-            // }
         };
     }
 
