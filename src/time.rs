@@ -84,6 +84,34 @@ impl<G: Granularity + Copy> Time<G> {
             Err(())
         }
     }
+
+    pub fn range_to_end(&self, end: Time<G>) -> TimeRangeTo<G> {
+        TimeRangeTo {
+            current: *self,
+            end: end,
+        }
+    }
+}
+
+pub struct TimeRangeTo<G> {
+    current: Time<G>,
+    end: Time<G>,
+}
+
+impl<G> std::iter::Iterator for TimeRangeTo<G>
+where
+    G: Granularity + Copy + Ord,
+{
+    type Item = Time<G>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = self.current + 1;
+        if next >= self.end {
+            None
+        } else {
+            self.current = next;
+            Some(next)
+        }
+    }
 }
 
 use std::ops::Add;

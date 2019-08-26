@@ -168,3 +168,4 @@ pub mod sma;
 pub mod vec;
 pub mod func;
 pub mod slope;
+pub mod trailing_stop;

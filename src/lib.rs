@@ -38,6 +38,7 @@ where
 // }
 
 pub mod time;
+pub mod position;
 pub mod indicator;
 
 use indicator::*;
