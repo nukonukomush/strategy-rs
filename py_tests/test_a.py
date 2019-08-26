@@ -40,6 +40,26 @@ def test_vec():
 
     assert result == expect
 
+def test_hash():
+    offset = ffi.Time(0, 5)
+    source = [1, 2, None, 4, 5]
+    expect = [
+        ffi.Option(c_double).some(1),
+        ffi.Option(c_double).some(2),
+        ffi.Option(c_double).none(),
+        ffi.Option(c_double).some(4),
+        ffi.Option(c_double).some(5),
+        ffi.Option(c_double).none(),
+     ]
+
+    h = ffi.Hash(c_double, 5)
+    for i, v in enumerate(source):
+        if v is not None:
+            h.set(offset + i, v)
+    result = [h.value(offset + i) for i in range(0, 6)]
+
+    assert result == expect
+
 def test_sma():
     offset = ffi.Time(0, 10)
     source = [1, 2, 3, 4, 5]

@@ -114,6 +114,32 @@ class Vec:
         getattr(mydll, "vec_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
         self.ptr = None
 
+class Hash:
+    for T, t_str in {
+        c_double: "f64",
+    }.items():
+        getattr(mydll, "hash_new_{}".format(t_str)).argtypes = [c_int]
+        getattr(mydll, "hash_new_{}".format(t_str)).restype = Ptr
+        getattr(mydll, "hash_destroy_{}".format(t_str)).argtypes = [Ptr]
+        getattr(mydll, "hash_destroy_{}".format(t_str)).restype = None
+        getattr(mydll, "hash_set_{}".format(t_str)).argtypes = [Ptr, Time, T]
+        getattr(mydll, "hash_set_{}".format(t_str)).restype = None
+
+    def __init__(self, T, granularity):
+        self.T = T
+        self.ptr = getattr(mydll, "hash_new_{}".format(get_rust_type(self.T)))(granularity)
+
+    def value(self, i):
+        return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.ptr.t_ptr, i)
+
+    def __del__(self):
+        getattr(mydll, "hash_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
+        self.ptr = None
+
+    def set(self, time, value):
+        getattr(mydll, "hash_set_{}".format(get_rust_type(self.T)))(self.ptr, time, value)
+
+
 class Sma:
     for T, t_str in {
         c_double: "f64",
