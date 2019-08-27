@@ -185,7 +185,6 @@ def test_trailing_stop():
     for i, v in enumerate(source_position):
         if v is not None:
             hash_position.set(offset + i, v)
-    # vec_position = ffi.Vec(offset, ffi.SimplePosition, source_position)
     trailing_stop = ffi.TrailingStop(c_double, vec_price, hash_position, 4.0)
     result = [trailing_stop.value(offset + i) for i in range(0, 6)]
 
