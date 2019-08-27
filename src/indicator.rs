@@ -44,12 +44,26 @@ pub trait Indicator<G, V> {
 
 pub trait FuncIndicator<G, V>: Indicator<G, V> {
     fn value(&self, time: Time<G>) -> MaybeValue<V>;
+
+    fn map<V2, F: Fn(V) -> V2>(self, f: F) -> stream::Map<G, V, V2, Self, F>
+    where
+        Self: Sized,
+    {
+        stream::Map::new(self, f)
+    }
 }
 
 pub trait IterIndicator<G, V>: Indicator<G, V> {
     // fn into_iter(self) -> IntoIterator<Item=V>;
 
     fn next(&mut self) -> MaybeValue<V>;
+
+    fn map<V2, F: FnMut(V) -> V2>(self, f: F) -> stream::Map<G, V, V2, Self, F>
+    where
+        Self: Sized,
+    {
+        stream::Map::new(self, f)
+    }
 }
 
 pub trait Provisional<G, V> {
@@ -238,14 +252,14 @@ pub mod tests {
 // }
 
 pub mod cached;
-// pub mod stream;
 pub mod complement;
 pub mod convert_granularity;
-// pub mod cross;
+pub mod cross;
 pub mod ordering;
 pub mod sma;
-pub mod vec;
 pub mod storage;
+pub mod stream;
+pub mod vec;
 // pub mod func;
 // pub mod slope;
 // pub mod trailing_stop;
