@@ -17,6 +17,15 @@ impl<V> Default for MaybeValue<V> {
     }
 }
 
+impl<V> MaybeValue<V> {
+    pub fn map<T, F: FnOnce(V) -> T>(self, f: F) -> MaybeValue<T> {
+        match self {
+            MaybeValue::Value(x) => MaybeValue::Value(f(x)),
+            MaybeValue::OutOfRange => MaybeValue::OutOfRange,
+        }
+    }
+}
+
 macro_rules! try_value {
     ($expr:expr) => {
         match $expr {
@@ -231,7 +240,7 @@ pub mod tests {
 pub mod cached;
 // pub mod stream;
 pub mod complement;
-// pub mod convert_granularity;
+pub mod convert_granularity;
 // pub mod cross;
 // pub mod ordering;
 pub mod sma;
