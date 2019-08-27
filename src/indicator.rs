@@ -4,9 +4,17 @@ use std::cell::RefCell;
 use std::os::raw::*;
 use std::rc::Rc;
 
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MaybeValue<V> {
     Value(V),
     OutOfRange,
+}
+
+impl<V> Default for MaybeValue<V> {
+    #[inline]
+    fn default() -> MaybeValue<V> {
+        MaybeValue::OutOfRange
+    }
 }
 
 // Indiator は、かならず Granularity をもつ。
@@ -218,7 +226,7 @@ pub mod tests {
 // pub mod cross;
 // pub mod ordering;
 // pub mod sma;
-// pub mod vec;
+pub mod vec;
 // pub mod func;
 // pub mod slope;
 // pub mod trailing_stop;

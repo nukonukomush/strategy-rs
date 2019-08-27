@@ -7,24 +7,6 @@ pub struct VecIndicator<G, V> {
     vec: Vec<V>,
 }
 
-impl<G, V> Indicator<G, V> for VecIndicator<G, V>
-where
-    V: Clone,
-    G: Granularity + Copy,
-{
-    fn value(&self, time: Time<G>) -> Option<V> {
-        let i = (time.timestamp() - self.offset.timestamp()) / self.granularity.unit_duration();
-        if i >= 0 && i < (self.vec.len() as i64) {
-            Some(self.vec[i as usize].clone())
-        } else {
-            None
-        }
-    }
-    fn granularity(&self) -> G {
-        self.granularity
-    }
-}
-
 impl<G, V> VecIndicator<G, V>
 where
     G: Granularity + Copy,
@@ -34,6 +16,31 @@ where
             granularity: offset.granularity(),
             offset: offset,
             vec: source,
+        }
+    }
+}
+
+impl<G, V> Indicator<G, V> for VecIndicator<G, V>
+where
+    V: Clone,
+    G: Granularity + Copy,
+{
+    fn granularity(&self) -> G {
+        self.granularity
+    }
+}
+
+impl<G, V> FuncIndicator<G, V> for VecIndicator<G, V>
+where
+    V: Clone,
+    G: Granularity + Copy,
+{
+    fn value(&self, time: Time<G>) -> MaybeValue<V> {
+        let i = (time.timestamp() - self.offset.timestamp()) / self.granularity.unit_duration();
+        if i >= 0 && i < (self.vec.len() as i64) {
+            MaybeValue::Value(self.vec[i as usize].clone())
+        } else {
+            MaybeValue::OutOfRange
         }
     }
 }
@@ -63,19 +70,27 @@ where
     }
 }
 
-impl<G, V> Indicator<G, V> for HashMapIndicator<G, V>
+impl<G, V> Indicator<G, Option<V>> for HashMapIndicator<G, V>
 where
     V: Clone,
     G: Granularity + Eq + std::hash::Hash + Copy,
 {
-    fn value(&self, time: Time<G>) -> Option<V> {
-        match self.map.get(&time) {
-            Some(v) => Some(v.clone()),
-            None => None,
-        }
-    }
     fn granularity(&self) -> G {
         self.granularity
+    }
+}
+
+impl<G, V> FuncIndicator<G, Option<V>> for HashMapIndicator<G, V>
+where
+    V: Clone,
+    G: Granularity + Eq + std::hash::Hash + Copy,
+{
+    fn value(&self, time: Time<G>) -> MaybeValue<Option<V>> {
+        // TODO: out of range
+        match self.map.get(&time) {
+            Some(v) => MaybeValue::Value(Some(v.clone())),
+            None => MaybeValue::Value(None),
+        }
     }
 }
 
@@ -95,6 +110,7 @@ where
 }
 
 // TODO: feature
+#[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
@@ -142,6 +158,7 @@ mod ffi {
     define_vec_methods!(f64, vec_new_f64, vec_destroy_f64);
 }
 
+#[cfg(ffi)]
 mod hash_ffi {
     use super::*;
     use crate::indicator::ffi::*;
@@ -229,12 +246,13 @@ mod hash_ffi {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use MaybeValue::*;
 
     #[test]
     fn test_vec() {
         let offset = Time::new(0, S5);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let expect = vec![Some(1.0), Some(2.0), Some(3.0), Some(4.0), Some(5.0)];
+        let expect = vec![Value(1.0), Value(2.0), Value(3.0), Value(4.0), Value(5.0)];
 
         let vec = VecIndicator::new(offset, source.clone());
         let result = (0..5).map(|i| vec.value(offset + i)).collect::<Vec<_>>();
@@ -245,7 +263,13 @@ mod tests {
     fn test_hash() {
         let offset = Time::new(0, S5);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let expect = vec![Some(1.0), Some(2.0), Some(3.0), Some(4.0), Some(5.0)];
+        let expect = vec![
+            Value(Some(1.0)),
+            Value(Some(2.0)),
+            Value(Some(3.0)),
+            Value(Some(4.0)),
+            Value(Some(5.0)),
+        ];
 
         let hash = from_vec(offset, source.clone());
         let result = (0..5).map(|i| hash.value(offset + i)).collect::<Vec<_>>();
