@@ -166,3 +166,27 @@ def test_slope():
     result = [slope.value(offset + i) for i in range(0, 6)]
 
     assert result == expect
+
+def test_trailing_stop():
+    offset = ffi.Time("2019-01-01 00:00:00", 60)
+    source_price = [1, 2, -3, 8, 3]
+    source_position = [1, 1, 1, 1, 1]
+    expect = [
+        ffi.Option(c_int).some(0),
+        ffi.Option(c_int).some(0),
+        ffi.Option(c_int).some(1),
+        ffi.Option(c_int).some(0),
+        ffi.Option(c_int).some(1),
+        ffi.Option(c_int).none(),
+    ]
+
+    vec_price = ffi.Vec(offset, c_double, source_price)
+    hash_position = ffi.Hash(ffi.SimplePosition, 5)
+    for i, v in enumerate(source_position):
+        if v is not None:
+            hash_position.set(offset + i, v)
+    # vec_position = ffi.Vec(offset, ffi.SimplePosition, source_position)
+    trailing_stop = ffi.TrailingStop(c_double, vec_price, hash_position, 4.0)
+    result = [trailing_stop.value(offset + i) for i in range(0, 6)]
+
+    assert result == expect

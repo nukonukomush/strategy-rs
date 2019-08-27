@@ -30,4 +30,14 @@ pub mod ffi {
             }
         }
     }
+
+    impl std::convert::Into<SimplePosition> for CSimplePosition {
+        fn into(self) -> SimplePosition {
+            match self {
+                CSimplePosition::Nothing => SimplePosition::Nothing,
+                CSimplePosition::Long => SimplePosition::Long,
+                CSimplePosition::Short => SimplePosition::Short,
+            }
+        }
+    }
 }

@@ -78,6 +78,76 @@ pub enum TrailingStopSignal {
     Stop,
 }
 
+pub mod ffi {
+    use super::*;
+    use crate::indicator::ffi::*;
+    use crate::indicator::*;
+    use crate::position::ffi::*;
+    use crate::position::*;
+    use crate::time::ffi::*;
+    use std::cell::RefCell;
+    use std::mem::drop;
+    use std::os::raw::*;
+    use std::ptr;
+    use std::rc::Rc;
+
+    #[repr(C)]
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub enum CTrailingStopSignal {
+        Continue = 0,
+        Stop = 1,
+    }
+    impl Default for CTrailingStopSignal {
+        fn default() -> Self {
+            CTrailingStopSignal::Continue
+        }
+    }
+
+    impl From<TrailingStopSignal> for CTrailingStopSignal {
+        fn from(s: TrailingStopSignal) -> Self {
+            match s {
+                TrailingStopSignal::Continue => CTrailingStopSignal::Continue,
+                TrailingStopSignal::Stop => CTrailingStopSignal::Stop,
+            }
+        }
+    }
+
+    #[repr(C)]
+    pub struct Ptr {
+        b_ptr: *mut Rc<
+            RefCell<TrailingStop<VarGranularity, IndicatorPtr<f64>, IndicatorPtr<SimplePosition>>>,
+        >,
+        t_ptr: *mut IndicatorPtr<TrailingStopSignal>,
+    }
+
+    macro_rules! define_trailingstop_methods {
+        ($new:ident, $destroy:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $new(
+                price: *mut IndicatorPtr<f64>,
+                position: *mut IndicatorPtr<SimplePosition>,
+                stop_level: f64,
+            ) -> Ptr {
+                let price = (*price).clone();
+                let position = (*position).clone();
+                let ptr = Rc::new(RefCell::new(TrailingStop::new(price, position, stop_level)));
+                Ptr {
+                    b_ptr: Box::into_raw(Box::new(ptr.clone())),
+                    t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
+                }
+            }
+
+            #[no_mangle]
+            pub unsafe extern "C" fn $destroy(ptr: Ptr) {
+                destroy(ptr.b_ptr);
+                destroy(ptr.t_ptr);
+            }
+        };
+    }
+
+    define_trailingstop_methods!(trailingstop_new, trailingstop_destroy);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

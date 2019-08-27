@@ -186,11 +186,44 @@ mod hash_ffi {
                 let ptr = &*ptr;
                 ptr.borrow_mut().insert(time.into(), value);
             }
-
         };
     }
 
     define_hash_methods!(f64, hash_new_f64, hash_destroy_f64, hash_set_f64);
+
+    use crate::position::ffi::*;
+    use crate::position::*;
+    #[no_mangle]
+    pub unsafe extern "C" fn hash_new_simpleposition(
+        granularity: VarGranularity,
+    ) -> Ptr<SimplePosition> {
+        let ptr = Rc::new(RefCell::new(HashMapIndicator::new(granularity)));
+        Ptr {
+            b_ptr: Box::into_raw(Box::new(ptr.clone())),
+            t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn hash_destroy_simpleposition(ptr: Ptr<SimplePosition>) {
+        destroy(ptr.b_ptr);
+        destroy(ptr.t_ptr);
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn hash_set_simpleposition(
+        ptr: Ptr<SimplePosition>,
+        time: CTime,
+        value: CSimplePosition,
+    ) {
+        let ptr = ptr.b_ptr;
+        if ptr.is_null() {
+            return;
+        }
+
+        let ptr = &*ptr;
+        ptr.borrow_mut().insert(time.into(), value.into());
+    }
 }
 
 #[cfg(test)]

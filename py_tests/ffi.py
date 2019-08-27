@@ -1,9 +1,13 @@
 import os
 from ctypes import *
 
+class SimplePosition(c_int):
+    pass
+
 type_map = {
     c_int: "i32",
     c_double: "f64",
+    SimplePosition: "simpleposition",
 }
 
 def default(T):
@@ -138,6 +142,10 @@ class Ptr(Structure):
 
 getattr(mydll, "indicator_value_{}".format("f64")).argtypes = [c_void_p, Time]
 getattr(mydll, "indicator_value_{}".format("f64")).restype = Option(c_double)
+getattr(mydll, "indicator_value_{}".format("i32")).argtypes = [c_void_p, Time]
+getattr(mydll, "indicator_value_{}".format("i32")).restype = Option(c_int)
+getattr(mydll, "indicator_value_{}".format("simpleposition")).argtypes = [c_void_p, Time]
+getattr(mydll, "indicator_value_{}".format("simpleposition")).restype = Option(c_int)
 
 class Vec:
     for T, t_str in {
@@ -165,6 +173,7 @@ class Vec:
 class Hash:
     for T, t_str in {
         c_double: "f64",
+        SimplePosition: "simpleposition",
     }.items():
         getattr(mydll, "hash_new_{}".format(t_str)).argtypes = [c_int]
         getattr(mydll, "hash_new_{}".format(t_str)).restype = Ptr
@@ -306,4 +315,25 @@ class Slope:
 
     def __del__(self):
         getattr(mydll, "slope_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
+        self.ptr = None
+
+
+TrailingStopSignal = c_int
+getattr(mydll, "indicator_value_trailingstopsignal").argtypes = [c_void_p, Time]
+getattr(mydll, "indicator_value_trailingstopsignal").restype = Option(c_int)
+class TrailingStop:
+    getattr(mydll, "trailingstop_new").argtypes = [c_void_p, c_void_p, c_double]
+    getattr(mydll, "trailingstop_new").restype = Ptr
+    getattr(mydll, "trailingstop_destroy").argtypes = [Ptr]
+    getattr(mydll, "trailingstop_destroy").restype = None
+
+    def __init__(self, T, price, position, stop_level):
+        self.T = T
+        self.ptr = getattr(mydll, "trailingstop_new")(price.ptr.t_ptr, position.ptr.t_ptr, stop_level)
+
+    def value(self, i):
+        return getattr(mydll, "indicator_value_trailingstopsignal")(self.ptr.t_ptr, i)
+
+    def __del__(self):
+        getattr(mydll, "trailingstop_destroy")(self.ptr)
         self.ptr = None

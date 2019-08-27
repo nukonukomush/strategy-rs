@@ -160,6 +160,9 @@ pub mod ffi {
     use crate::position::*;
     use crate::position::ffi::*;
     define_value_convert!(SimplePosition, CSimplePosition, indicator_value_simpleposition);
+    use trailing_stop::ffi::*;
+    use trailing_stop::*;
+    define_value_convert!(TrailingStopSignal, CTrailingStopSignal, indicator_value_trailingstopsignal);
 }
 
 pub mod cached;
