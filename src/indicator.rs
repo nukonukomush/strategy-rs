@@ -236,6 +236,7 @@ pub mod cached;
 // pub mod ordering;
 pub mod sma;
 pub mod vec;
+pub mod storage;
 // pub mod func;
 // pub mod slope;
 // pub mod trailing_stop;

@@ -110,6 +110,7 @@ where
     }
 }
 
+#[cfg(ffi)]
 pub mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
@@ -161,6 +162,7 @@ pub mod ffi {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use MaybeValue::*;
     use crate::vec::*;
 
     #[test]
