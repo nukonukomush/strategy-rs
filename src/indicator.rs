@@ -219,7 +219,7 @@ pub mod tests {
 //     define_value_convert!(TrailingStopSignal, CTrailingStopSignal, indicator_value_trailingstopsignal);
 // }
 
-// pub mod cached;
+pub mod cached;
 // pub mod stream;
 // pub mod complement;
 // pub mod convert_granularity;

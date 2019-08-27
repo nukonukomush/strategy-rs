@@ -29,24 +29,33 @@ where
     V: Clone,
     I: Indicator<G, V>,
 {
-    fn value(&self, time: Time<G>) -> Option<V> {
-        let maybe = self.cache.borrow_mut().get(&time).map(|v| v.clone());
-        match maybe {
-            Some(v) => Some(v),
-            None => match self.source.value(time) {
-                Some(v) => {
-                    self.cache.borrow_mut().insert(time, v.clone());
-                    Some(v)
-                }
-                None => None,
-            },
-        }
-    }
     fn granularity(&self) -> G {
         self.source.granularity()
     }
 }
 
+impl<G, V, I> FuncIndicator<G, V> for LRUCache<G, V, I>
+where
+    G: Granularity + Eq + std::hash::Hash + Copy,
+    V: Clone,
+    I: FuncIndicator<G, V>,
+{
+    fn value(&self, time: Time<G>) -> MaybeValue<V> {
+        let maybe = self.cache.borrow_mut().get(&time).map(|v| v.clone());
+        match maybe {
+            Some(v) => MaybeValue::Value(v),
+            None => match self.source.value(time) {
+                MaybeValue::Value(v) => {
+                    self.cache.borrow_mut().insert(time, v.clone());
+                    MaybeValue::Value(v)
+                }
+                MaybeValue::OutOfRange => MaybeValue::OutOfRange
+            },
+        }
+    }
+}
+
+#[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
