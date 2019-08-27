@@ -3,27 +3,35 @@ use crate::*;
 use std::collections::HashMap;
 
 pub struct Storage<G, V> {
+    begin: Time<G>,
+    end: Time<G>,
     map: HashMap<Time<G>, V>,
-    granularity: G,
 }
 
 impl<G, V> Storage<G, V>
 where
     V: Clone,
-    G: Granularity + Eq + std::hash::Hash + Copy,
+    G: Granularity + Eq + std::hash::Hash + Copy + Ord,
 {
-    pub fn new(granularity: G) -> Self {
-        Self::from_map(HashMap::new(), granularity)
-    }
-    pub fn from_map(map: HashMap<Time<G>, V>, granularity: G) -> Self {
+    pub fn new(offset: Time<G>) -> Self {
+        // Self::from_map(HashMap::new(), granularity)
         Self {
-            map: map,
-            granularity: granularity,
+            begin: offset,
+            end: offset,
+            map: HashMap::new(),
         }
     }
+
+    // pub fn from_map(map: HashMap<Time<G>, V>) -> Self {
+    //     Self {
+    //         map: map,
+    //     }
+    // }
+
     pub fn add(&mut self, time: Time<G>, value: V) {
-        // TODO: debug_assert で定義域内のものは変更不可にする
+        debug_assert!(time >= self.end);
         self.map.insert(time, value);
+        self.end = time + 1;
     }
 
     pub fn from_vec(offset: Time<G>, vec: Vec<V>) -> Self
@@ -31,13 +39,19 @@ where
         V: Clone,
         G: Granularity + Eq + std::hash::Hash + Copy,
     {
-        let mut h = HashMap::new();
-        vec.into_iter().enumerate().for_each(|(i, v)| {
-            h.insert(offset + (i as i64), v);
-        });
-        Self {
-            map: h,
-            granularity: offset.granularity(),
+        let len = vec.len();
+        if len == 0 {
+            Self::new(offset)
+        } else {
+            let mut h = HashMap::new();
+            vec.into_iter().enumerate().for_each(|(i, v)| {
+                h.insert(offset + (i as i64), v);
+            });
+            Self {
+                begin: offset,
+                end: offset + len as i64,
+                map: h,
+            }
         }
     }
 }
@@ -48,20 +62,23 @@ where
     G: Granularity + Eq + std::hash::Hash + Copy,
 {
     fn granularity(&self) -> G {
-        self.granularity
+        self.begin.granularity()
     }
 }
 
 impl<G, V> FuncIndicator<G, Option<V>> for Storage<G, V>
 where
     V: Clone,
-    G: Granularity + Eq + std::hash::Hash + Copy,
+    G: Granularity + Eq + std::hash::Hash + Copy + Ord,
 {
     fn value(&self, time: Time<G>) -> MaybeValue<Option<V>> {
-        // TODO: out of range
-        match self.map.get(&time) {
-            Some(v) => MaybeValue::Value(Some(v.clone())),
-            None => MaybeValue::Value(None),
+        if self.begin <= time && time < self.end {
+            match self.map.get(&time) {
+                Some(v) => MaybeValue::Value(Some(v.clone())),
+                None => MaybeValue::Value(None),
+            }
+        } else {
+            MaybeValue::OutOfRange
         }
     }
 }
@@ -157,7 +174,7 @@ mod tests {
     use MaybeValue::*;
 
     #[test]
-    fn test_hash() {
+    fn test_from_vec() {
         let offset = Time::new(0, S5);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let expect = vec![
@@ -168,8 +185,38 @@ mod tests {
             Value(Some(5.0)),
         ];
 
-        let hash = Storage::from_vec(offset, source.clone());
-        let result = (0..5).map(|i| hash.value(offset + i)).collect::<Vec<_>>();
+        let storage = Storage::from_vec(offset, source.clone());
+        let result = (0..5).map(|i| storage.value(offset + i)).collect::<Vec<_>>();
         assert_eq!(result, expect);
+    }
+
+    #[test]
+    fn test_add_ok() {
+        let offset = Time::new(0, S5);
+        let expect = vec![
+            Value(Some(1.0)),
+            Value(Some(2.0)),
+            Value(None),
+            Value(Some(3.0)),
+            OutOfRange,
+        ];
+
+        let mut storage = Storage::new(offset);
+        storage.add(offset + 0, 1.0);
+        storage.add(offset + 1, 2.0);
+        storage.add(offset + 3, 3.0);
+
+        let result = (0..5).map(|i| storage.value(offset + i)).collect::<Vec<_>>();
+        assert_eq!(result, expect);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_add_ng() {
+        let offset = Time::new(0, S5);
+        let mut storage = Storage::new(offset);
+        storage.add(offset + 0, 1.0);
+        storage.add(offset + 3, 3.0);
+        storage.add(offset + 1, 2.0);
     }
 }
