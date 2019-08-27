@@ -212,11 +212,21 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_add_ng() {
+    fn test_add_ng_1() {
         let offset = Time::new(0, S5);
         let mut storage = Storage::new(offset);
         storage.add(offset + 0, 1.0);
         storage.add(offset + 3, 3.0);
         storage.add(offset + 1, 2.0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_add_ng_2() {
+        let offset = Time::new(0, S5);
+        let mut storage = Storage::new(offset);
+        storage.add(offset + 0, 1.0);
+        storage.add(offset + 3, 3.0);
+        storage.add(offset + 3, 2.0);
     }
 }

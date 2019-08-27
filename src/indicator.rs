@@ -230,7 +230,7 @@ pub mod tests {
 
 pub mod cached;
 // pub mod stream;
-// pub mod complement;
+pub mod complement;
 // pub mod convert_granularity;
 // pub mod cross;
 // pub mod ordering;
