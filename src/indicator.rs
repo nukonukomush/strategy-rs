@@ -242,7 +242,7 @@ pub mod cached;
 pub mod complement;
 pub mod convert_granularity;
 // pub mod cross;
-// pub mod ordering;
+pub mod ordering;
 pub mod sma;
 pub mod vec;
 pub mod storage;

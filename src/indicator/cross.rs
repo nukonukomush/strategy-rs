@@ -33,45 +33,36 @@ where
     G: Granularity + Copy,
     I: Indicator<G, std::cmp::Ordering>,
 {
-    fn value(&self, time: Time<G>) -> Option<CrossState> {
+    fn granularity(&self) -> G {
+        self.source.granularity()
+    }
+}
+
+impl<G, I> FuncIndicator<G, CrossState> for Cross<G, I>
+where
+    G: Granularity + Copy,
+    I: FuncIndicator<G, std::cmp::Ordering>,
+{
+    fn value(&self, time: Time<G>) -> MaybeValue<CrossState> {
         use std::cmp::Ordering::*;
         use CrossState::*;
 
-        // TODO: refactor
-        if let Some(current_ord) = self.source.value(time) {
-            // if index != 0 && current_ord != Equal {
-            //     for i in (0..=(index - 1)).rev() {
-            //         if let Some(past_ord) = self.source.value(i) {
-            //             match (past_ord, current_ord) {
-            //                 (Greater, Less) => return Some(GtToLt),
-            //                 (Less, Greater) => return Some(LtToGt),
-            //                 (Greater, Greater) => return Some(NotCrossed),
-            //                 (Less, Less) => return Some(NotCrossed),
-            //                 _ => (),
-            //             }
-            //         }
-            //     }
-            // }
-            if current_ord != Equal {
-                let mut i = time - 1;
-                while let Some(past_ord) = self.source.value(i) {
-                    match (past_ord, current_ord) {
-                        (Greater, Less) => return Some(GtToLt),
-                        (Less, Greater) => return Some(LtToGt),
-                        (Greater, Greater) => return Some(NotCrossed),
-                        (Less, Less) => return Some(NotCrossed),
-                        _ => (),
-                    }
-                    i = i - 1;
+        // TODO: refactor using cmpl
+        let current_ord = try_value!(self.source.value(time));
+        if current_ord != Equal {
+            let mut i = time - 1;
+            while let MaybeValue::Value(past_ord) = self.source.value(i) {
+                match (past_ord, current_ord) {
+                    (Greater, Less) => return MaybeValue::Value(GtToLt),
+                    (Less, Greater) => return MaybeValue::Value(LtToGt),
+                    (Greater, Greater) => return MaybeValue::Value(NotCrossed),
+                    (Less, Less) => return MaybeValue::Value(NotCrossed),
+                    _ => (),
                 }
+                i = i - 1;
             }
-            Some(NotCrossed)
-        } else {
-            None
         }
-    }
-    fn granularity(&self) -> G {
-        self.source.granularity()
+        MaybeValue::Value(NotCrossed)
     }
 }
 
@@ -82,6 +73,7 @@ pub enum CrossState {
     GtToLt,
 }
 
+#[cfg(ffi)]
 pub mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
@@ -160,6 +152,7 @@ pub mod ffi {
 mod tests {
     use super::*;
     use crate::vec::*;
+    use MaybeValue::*;
 
     #[test]
     fn test_cross() {
@@ -172,7 +165,7 @@ mod tests {
         let source_2 = vec![1.0; 10];
         let expected = vec![not, not, ltg, not, gtl, not, not, ltg, not, gtl]
             .into_iter()
-            .map(|v| Some(v))
+            .map(|v| Value(v))
             .collect::<Vec<_>>();
         let source_1 = VecIndicator::new(offset, source_1);
         let source_2 = VecIndicator::new(offset, source_2);
