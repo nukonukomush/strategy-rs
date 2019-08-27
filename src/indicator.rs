@@ -17,6 +17,15 @@ impl<V> Default for MaybeValue<V> {
     }
 }
 
+macro_rules! try_value {
+    ($expr:expr) => {
+        match $expr {
+            MaybeValue::Value(v) => v,
+            MaybeValue::OutOfRange => return MaybeValue::OutOfRange,
+        }
+    };
+}
+
 // Indiator は、かならず Granularity をもつ。
 // Granularity の変換の際、一番小さい Granularity (1秒) にもどして相互変換する。
 
@@ -225,7 +234,7 @@ pub mod cached;
 // pub mod convert_granularity;
 // pub mod cross;
 // pub mod ordering;
-// pub mod sma;
+pub mod sma;
 pub mod vec;
 // pub mod func;
 // pub mod slope;

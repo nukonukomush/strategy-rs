@@ -23,7 +23,17 @@ where
     G: Granularity + Ord + Copy,
     I: Indicator<G, f64>,
 {
-    fn value(&self, time: Time<G>) -> Option<f64> {
+    fn granularity(&self) -> G {
+        self.source.granularity()
+    }
+}
+
+impl<G, I> FuncIndicator<G, f64> for Sma<G, I>
+where
+    G: Granularity + Ord + Copy,
+    I: FuncIndicator<G, f64>,
+{
+    fn value(&self, time: Time<G>) -> MaybeValue<f64> {
         let mut sum = 0.0;
         let begin = time + 1 - (self.period as i64);
         // for i in (begin..=time).rev() {
@@ -32,17 +42,15 @@ where
         // }
         let mut tmp = time;
         while tmp >= begin {
-            let v = self.source.value(tmp)?;
+            let v = try_value!(self.source.value(tmp));
             sum += v;
             tmp = tmp - 1;
         }
-        Some(sum / self.period as f64)
-    }
-    fn granularity(&self) -> G {
-        self.source.granularity()
+        MaybeValue::Value(sum / self.period as f64)
     }
 }
 
+#[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
@@ -86,6 +94,7 @@ mod ffi {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use MaybeValue::*;
     use crate::indicator::cached::*;
     use crate::vec::*;
 
@@ -93,7 +102,7 @@ mod tests {
     fn test_sma() {
         let offset = Time::new(0, S5);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let expect = vec![None, None, Some(2.0), Some(3.0), Some(4.0)];
+        let expect = vec![OutOfRange, OutOfRange, Value(2.0), Value(3.0), Value(4.0)];
         // let sma_pre = Sma::new(source, 3);
         // let sma = Cached::new(sma_pre);
         let sma_pre = Sma::new(VecIndicator::new(offset, source.clone()), 3);
