@@ -51,6 +51,14 @@ pub trait FuncIndicator<G, V>: Indicator<G, V> {
     {
         stream::Map::new(self, f)
     }
+
+    fn zip<V2, I>(self, other: I) -> stream::Zip<G, V, V2, Self, I>
+    where
+        Self: Sized,
+        I: FuncIndicator<G, V2>
+    {
+        stream::Zip::new(self, other)
+    }
 }
 
 pub trait IterIndicator<G, V>: Indicator<G, V> {
@@ -58,11 +66,20 @@ pub trait IterIndicator<G, V>: Indicator<G, V> {
 
     fn next(&mut self) -> MaybeValue<V>;
 
-    fn map<V2, F: FnMut(V) -> V2>(self, f: F) -> stream::Map<G, V, V2, Self, F>
+    fn map<V2, F>(self, f: F) -> stream::Map<G, V, V2, Self, F>
     where
         Self: Sized,
+        F: FnMut(V) -> V2,
     {
         stream::Map::new(self, f)
+    }
+
+    fn zip<V2, I>(self, other: I) -> stream::Zip<G, V, V2, Self, I>
+    where
+        Self: Sized,
+        I: IterIndicator<G, V2>
+    {
+        stream::Zip::new(self, other)
     }
 }
 
@@ -260,6 +277,5 @@ pub mod sma;
 pub mod storage;
 pub mod stream;
 pub mod vec;
-// pub mod func;
 // pub mod slope;
 // pub mod trailing_stop;

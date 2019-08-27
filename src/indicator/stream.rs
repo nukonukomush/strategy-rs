@@ -91,3 +91,79 @@ where
 //         (self.func)(self.source.value(time))
 //     }
 // }
+
+pub struct Zip<G, V1, V2, I1, I2> {
+    source_1: I1,
+    source_2: I2,
+    p1: std::marker::PhantomData<G>,
+    p2: std::marker::PhantomData<V1>,
+    p3: std::marker::PhantomData<V2>,
+}
+
+impl<G, V1, V2, I1, I2> Zip<G, V1, V2, I1, I2> {
+    pub fn new(source_1: I1, source_2: I2) -> Self {
+        Self {
+            source_1: source_1,
+            source_2: source_2,
+            p1: std::marker::PhantomData,
+            p2: std::marker::PhantomData,
+            p3: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<G, V1, V2, I1, I2> Indicator<G, (V1, V2)> for Zip<G, V1, V2, I1, I2>
+where
+    I1: Indicator<G, V1>,
+    I2: Indicator<G, V2>,
+{
+    fn granularity(&self) -> G {
+        self.source_1.granularity()
+    }
+}
+
+impl<G, V1, V2, I1, I2> FuncIndicator<G, (V1, V2)> for Zip<G, V1, V2, I1, I2>
+where
+    G: Granularity + Copy,
+    I1: FuncIndicator<G, V1>,
+    I2: FuncIndicator<G, V2>,
+{
+    fn value(&self, time: Time<G>) -> MaybeValue<(V1, V2)> {
+        let v1 = try_value!(self.source_1.value(time));
+        let v2 = try_value!(self.source_2.value(time));
+        MaybeValue::Value((v1, v2))
+    }
+}
+
+impl<G, V1, V2, I1, I2> IterIndicator<G, (V1, V2)> for Zip<G, V1, V2, I1, I2>
+where
+    I1: IterIndicator<G, V1>,
+    I2: IterIndicator<G, V2>,
+{
+    fn next(&mut self) -> MaybeValue<(V1, V2)> {
+        let v1 = try_value!(self.source_1.next());
+        let v2 = try_value!(self.source_2.next());
+        MaybeValue::Value((v1, v2))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vec::*;
+    use MaybeValue::*;
+
+    #[test]
+    fn test_zip() {
+        let offset = Time::new(0, S5);
+        let source_1 = vec![1.0, 2.0, 3.0, 4.0, 5.0_f64];
+        let source_2 = vec![0, -1, 0, 1, 0_i32];
+        let expect = vec![Value(0.0), Value(2.0), Value(0.0), Value(4.0), Value(0.0)];
+        let vec_1 = VecIndicator::new(offset, source_1);
+        let vec_2 = VecIndicator::new(offset, source_2);
+        let func = vec_1.zip(vec_2).map(|(v1, v2)| v1 * v2.abs() as f64);
+
+        let result = (0..5).map(|i| func.value(offset + i)).collect::<Vec<_>>();
+        assert_eq!(result, expect);
+    }
+}
