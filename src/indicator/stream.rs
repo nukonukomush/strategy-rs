@@ -49,6 +49,10 @@ where
     fn next(&mut self) -> MaybeValue<V2> {
         self.source.next().map(|v| (self.func)(v))
     }
+
+    fn offset(&self) -> Time<G> {
+        self.source.offset()
+    }
 }
 
 // TODO: then は使わないかも？けす
@@ -140,10 +144,15 @@ where
     I1: IterIndicator<G, V1>,
     I2: IterIndicator<G, V2>,
 {
+    // FIXME: v1 => ok, v2 => ng のときにバグるので、v1 を持っておくようにする
     fn next(&mut self) -> MaybeValue<(V1, V2)> {
         let v1 = try_value!(self.source_1.next());
         let v2 = try_value!(self.source_2.next());
         MaybeValue::Value((v1, v2))
+    }
+
+    fn offset(&self) -> Time<G> {
+        self.source_1.offset()
     }
 }
 
@@ -216,6 +225,10 @@ where
         self.offset = self.offset + 1;
         MaybeValue::Value(v)
     }
+
+    fn offset(&self) -> Time<G> {
+        self.offset
+    }
 }
 
 pub struct IterStorage<G, V, I> {
@@ -266,6 +279,10 @@ where
         // self.storage.add(self.offset, v);
         // self.offset = self.offset + 1;
         MaybeValue::Value(v)
+    }
+
+    fn offset(&self) -> Time<G> {
+        self.source.offset()
     }
 }
 

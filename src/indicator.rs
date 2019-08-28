@@ -81,6 +81,8 @@ pub trait FuncIndicator<G, V>: Indicator<G, V> {
 pub trait IterIndicator<G, V>: Indicator<G, V> {
     fn next(&mut self) -> MaybeValue<V>;
 
+    fn offset(&self) -> Time<G>;
+
     fn map<V2, F>(self, f: F) -> stream::Map<G, V, V2, Self, F>
     where
         Self: Sized,
@@ -146,6 +148,10 @@ where
     fn next(&mut self) -> MaybeValue<V> {
         (*self.borrow_mut()).next()
     }
+
+    fn offset(&self) -> Time<G> {
+        (*self.borrow_mut()).offset()
+    }
 }
 
 use std::ops::Deref;
@@ -173,6 +179,10 @@ where
 {
     fn next(&mut self) -> MaybeValue<V> {
         (*self.borrow_mut()).next()
+    }
+
+    fn offset(&self) -> Time<G> {
+        (*self.borrow_mut()).offset()
     }
 }
 
