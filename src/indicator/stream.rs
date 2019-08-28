@@ -239,13 +239,33 @@ pub struct IterStorage<G, V, I> {
 impl<G, V, I> IterStorage<G, V, I>
 where
     G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    I: IterIndicator<G, V>,
 {
     // TODO: initial capacity
-    pub fn new(source: I, offset: Time<G>) -> Self {
+    pub fn new(source: I) -> Self {
         Self {
+            storage: storage::Storage::new(source.offset()),
             source: source,
-            storage: storage::Storage::new(offset),
         }
+    }
+
+}
+
+impl<G, V, I> IterStorage<G, V, I>
+where
+    Self: IterIndicator<G, V>,
+    G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    V: Clone,
+    I: IterIndicator<G, V>,
+{
+    pub fn update_to(&mut self, time: Time<G>) {
+        while self.source.offset() <= time {
+            self.next();
+        }
+    }
+
+    pub fn into_consumer(self) -> IterConsumerStorage<G, V, I> {
+        IterConsumerStorage::new(self)
     }
 }
 
@@ -272,13 +292,67 @@ where
 impl<G, V, I> IterIndicator<G, V> for IterStorage<G, V, I>
 where
     G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    V: Clone,
     I: IterIndicator<G, V>,
 {
     fn next(&mut self) -> MaybeValue<V> {
+        let time = self.source.offset();
         let v = try_value!(self.source.next());
-        // self.storage.add(self.offset, v);
-        // self.offset = self.offset + 1;
+        self.storage.add(time, v.clone());
         MaybeValue::Value(v)
+    }
+
+    fn offset(&self) -> Time<G> {
+        self.source.offset()
+    }
+}
+
+use std::cell::RefCell;
+pub struct IterConsumerStorage<G, V, I> {
+    // TODO: generics
+    source: RefCell<IterStorage<G, V, I>>,
+}
+
+impl<G, V, I> IterConsumerStorage<G, V, I>
+where
+    G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    I: IterIndicator<G, V>,
+{
+    // TODO: initial capacity
+    pub fn new(source: IterStorage<G, V, I>) -> Self {
+        Self { source: RefCell::new(source) }
+    }
+}
+
+impl<G, V, I> Indicator<G, V> for IterConsumerStorage<G, V, I>
+where
+    I: Indicator<G, V>,
+{
+    fn granularity(&self) -> G {
+        self.source.granularity()
+    }
+}
+
+impl<G, V, I> FuncIndicator<G, V> for IterConsumerStorage<G, V, I>
+where
+    G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    V: Clone,
+    I: IterIndicator<G, V>,
+{
+    fn value(&self, time: Time<G>) -> MaybeValue<V> {
+        self.source.borrow_mut().update_to(time);
+        self.source.value(time)
+    }
+}
+
+impl<G, V, I> IterIndicator<G, V> for IterConsumerStorage<G, V, I>
+where
+    G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    V: Clone,
+    I: IterIndicator<G, V>,
+{
+    fn next(&mut self) -> MaybeValue<V> {
+        self.source.next()
     }
 
     fn offset(&self) -> Time<G> {
