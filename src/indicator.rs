@@ -26,6 +26,15 @@ impl<V> MaybeValue<V> {
     }
 }
 
+impl<V> Into<Option<V>> for MaybeValue<V> {
+    fn into(self) -> Option<V> {
+        match self {
+            MaybeValue::Value(x) => Some(x),
+            MaybeValue::OutOfRange => None,
+        }
+    }
+}
+
 macro_rules! try_value {
     ($expr:expr) => {
         match $expr {
@@ -45,9 +54,10 @@ pub trait Indicator<G, V> {
 pub trait FuncIndicator<G, V>: Indicator<G, V> {
     fn value(&self, time: Time<G>) -> MaybeValue<V>;
 
-    fn map<V2, F: Fn(V) -> V2>(self, f: F) -> stream::Map<G, V, V2, Self, F>
+    fn map<V2, F>(self, f: F) -> stream::Map<G, V, V2, Self, F>
     where
         Self: Sized,
+        F: Fn(V) -> V2,
     {
         stream::Map::new(self, f)
     }
@@ -55,15 +65,20 @@ pub trait FuncIndicator<G, V>: Indicator<G, V> {
     fn zip<V2, I>(self, other: I) -> stream::Zip<G, V, V2, Self, I>
     where
         Self: Sized,
-        I: FuncIndicator<G, V2>
+        I: FuncIndicator<G, V2>,
     {
         stream::Zip::new(self, other)
+    }
+
+    fn into_iter(self, offset: Time<G>) -> stream::FuncIter<G, Self>
+    where
+        Self: Sized,
+    {
+        stream::FuncIter::new(self, offset)
     }
 }
 
 pub trait IterIndicator<G, V>: Indicator<G, V> {
-    // fn into_iter(self) -> IntoIterator<Item=V>;
-
     fn next(&mut self) -> MaybeValue<V>;
 
     fn map<V2, F>(self, f: F) -> stream::Map<G, V, V2, Self, F>
@@ -77,9 +92,16 @@ pub trait IterIndicator<G, V>: Indicator<G, V> {
     fn zip<V2, I>(self, other: I) -> stream::Zip<G, V, V2, Self, I>
     where
         Self: Sized,
-        I: IterIndicator<G, V2>
+        I: IterIndicator<G, V2>,
     {
         stream::Zip::new(self, other)
+    }
+
+    fn into_std(self) -> stream::StdIter<G, V, Self>
+    where
+        Self: Sized,
+    {
+        stream::StdIter::new(self)
     }
 }
 

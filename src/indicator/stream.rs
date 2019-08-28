@@ -147,6 +147,128 @@ where
     }
 }
 
+pub struct StdIter<G, V, I> {
+    source: I,
+    p1: std::marker::PhantomData<G>,
+    p2: std::marker::PhantomData<V>,
+}
+
+impl<G, V, I> StdIter<G, V, I> {
+    pub fn new(source: I) -> Self {
+        Self {
+            source: source,
+            p1: std::marker::PhantomData,
+            p2: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<G, V, I> Iterator for StdIter<G, V, I>
+where
+    I: IterIndicator<G, V>,
+{
+    type Item = V;
+    fn next(&mut self) -> Option<V> {
+        self.source.next().into()
+    }
+}
+
+pub struct FuncIter<G, I> {
+    source: I,
+    offset: Time<G>,
+}
+
+impl<G, I> FuncIter<G, I> {
+    pub fn new(source: I, offset: Time<G>) -> Self {
+        Self {
+            source: source,
+            offset: offset,
+        }
+    }
+}
+
+impl<G, V, I> Indicator<G, V> for FuncIter<G, I>
+where
+    I: Indicator<G, V>,
+{
+    fn granularity(&self) -> G {
+        self.source.granularity()
+    }
+}
+
+impl<G, V, I> FuncIndicator<G, V> for FuncIter<G, I>
+where
+    G: Granularity,
+    I: FuncIndicator<G, V>,
+{
+    fn value(&self, time: Time<G>) -> MaybeValue<V> {
+        self.source.value(time)
+    }
+}
+
+impl<G, V, I> IterIndicator<G, V> for FuncIter<G, I>
+where
+    G: Granularity + Copy,
+    I: FuncIndicator<G, V>,
+{
+    fn next(&mut self) -> MaybeValue<V> {
+        let v = try_value!(self.source.value(self.offset));
+        self.offset = self.offset + 1;
+        MaybeValue::Value(v)
+    }
+}
+
+pub struct IterStorage<G, V, I> {
+    source: I,
+    storage: storage::Storage<G, V>,
+}
+
+impl<G, V, I> IterStorage<G, V, I>
+where
+    G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+{
+    // TODO: initial capacity
+    pub fn new(source: I, offset: Time<G>) -> Self {
+        Self {
+            source: source,
+            storage: storage::Storage::new(offset),
+        }
+    }
+}
+
+impl<G, V, I> Indicator<G, V> for IterStorage<G, V, I>
+where
+    I: Indicator<G, V>,
+{
+    fn granularity(&self) -> G {
+        self.source.granularity()
+    }
+}
+
+impl<G, V, I> FuncIndicator<G, V> for IterStorage<G, V, I>
+where
+    G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    V: Clone,
+    I: IterIndicator<G, V>,
+{
+    fn value(&self, time: Time<G>) -> MaybeValue<V> {
+        self.storage.value(time).map(|v| v.unwrap())
+    }
+}
+
+impl<G, V, I> IterIndicator<G, V> for IterStorage<G, V, I>
+where
+    G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    I: IterIndicator<G, V>,
+{
+    fn next(&mut self) -> MaybeValue<V> {
+        let v = try_value!(self.source.next());
+        // self.storage.add(self.offset, v);
+        // self.offset = self.offset + 1;
+        MaybeValue::Value(v)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,6 +286,22 @@ mod tests {
         let func = vec_1.zip(vec_2).map(|(v1, v2)| v1 * v2.abs() as f64);
 
         let result = (0..5).map(|i| func.value(offset + i)).collect::<Vec<_>>();
+        assert_eq!(result, expect);
+    }
+
+    #[test]
+    fn test_iter() {
+        let offset = Time::new(0, S5);
+        let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let expect = vec![1.0, 3.0, 6.0, 10.0, 15.0];
+        let mut sum = 0.0;
+
+        let vec = VecIndicator::new(offset, source.clone());
+        let iter = IterIndicator::map(vec.into_iter(offset), move |v| {
+            sum += v;
+            sum
+        });
+        let result = iter.into_std().collect::<Vec<_>>();
         assert_eq!(result, expect);
     }
 }

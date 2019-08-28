@@ -10,7 +10,6 @@ pub struct Storage<G, V> {
 
 impl<G, V> Storage<G, V>
 where
-    V: Clone,
     G: Granularity + Eq + std::hash::Hash + Copy + Ord,
 {
     pub fn new(offset: Time<G>) -> Self {
@@ -35,9 +34,6 @@ where
     }
 
     pub fn from_vec(offset: Time<G>, vec: Vec<V>) -> Self
-    where
-        V: Clone,
-        G: Granularity + Eq + std::hash::Hash + Copy,
     {
         let len = vec.len();
         if len == 0 {
