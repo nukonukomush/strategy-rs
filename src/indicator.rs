@@ -105,6 +105,14 @@ pub trait IterIndicator<G, V>: Indicator<G, V> {
     {
         stream::StdIter::new(self)
     }
+
+    fn into_storage(self) -> stream::IterStorage<G, V, Self>
+    where
+        Self: Sized,
+        G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    {
+        stream::IterStorage::new(self)
+    }
 }
 
 pub trait Provisional<G, V> {
