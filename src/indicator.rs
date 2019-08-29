@@ -76,6 +76,13 @@ pub trait FuncIndicator<G, V>: Indicator<G, V> {
     {
         stream::FuncIter::new(self, offset)
     }
+
+    fn into_sync_ptr(self) -> Rc<RefCell<Self>>
+    where
+        Self: Sized,
+    {
+        Rc::new(RefCell::new(self))
+    }
 }
 
 pub trait IterIndicator<G, V>: Indicator<G, V> {
@@ -112,6 +119,13 @@ pub trait IterIndicator<G, V>: Indicator<G, V> {
         G: Granularity + Eq + std::hash::Hash + Copy + Ord,
     {
         stream::IterStorage::new(self)
+    }
+
+    fn into_sync_ptr(self) -> Rc<RefCell<Self>>
+    where
+        Self: Sized,
+    {
+        Rc::new(RefCell::new(self))
     }
 }
 
@@ -230,83 +244,166 @@ pub mod tests {
     // }
 }
 
-// pub mod ffi {
-//     use super::*;
-//     use crate::time::ffi::*;
+// #[cfg(ffi)]
+pub mod ffi {
+    use super::*;
+    use crate::ffi::*;
+    use crate::time::ffi::*;
+    use std::ops::Deref;
 
-//     pub unsafe fn destroy<T>(ptr: *mut T) {
-//         if ptr.is_null() {
-//             return;
-//         }
-//         // ここ Box にする必要ある？？
-//         let boxed = Box::from_raw(ptr);
-//         drop(boxed);
-//     }
+    #[repr(C)]
+    pub struct CMaybeValue<T> {
+        is_value: c_char,
+        value: T,
+    }
 
-//     #[derive(Clone)]
-//     pub struct IndicatorPtr<V>(pub Rc<RefCell<dyn Indicator<VarGranularity, V>>>);
+    impl<T> CMaybeValue<T>
+    where
+        T: Default,
+    {
+        pub fn out_of_range() -> Self {
+            Self {
+                is_value: 0,
+                value: Default::default(),
+            }
+        }
 
-//     impl<V> Indicator<VarGranularity, V> for IndicatorPtr<V> {
-//         fn value(&self, time: Time<VarGranularity>) -> Option<V> {
-//             self.borrow().value(time)
-//         }
-//         fn granularity(&self) -> VarGranularity {
-//             self.borrow().granularity()
-//         }
-//     }
+        pub fn value(value: T) -> Self {
+            Self {
+                is_value: 1,
+                value: value,
+            }
+        }
 
-//     use std::ops::Deref;
-//     impl<V> Deref for IndicatorPtr<V> {
-//         type Target = Rc<RefCell<dyn Indicator<VarGranularity, V>>>;
-//         fn deref(&self) -> &Self::Target {
-//             &self.0
-//         }
-//     }
+        pub fn from_option(value: Option<T>) -> Self {
+            match value {
+                Some(value) => Self::value(value),
+                None => Self::out_of_range(),
+            }
+        }
+    }
 
-//     macro_rules! define_value {
-//         ($t:ident, $value:ident) => {
-//             #[no_mangle]
-//             pub unsafe extern "C" fn $value(
-//                 ptr: *mut IndicatorPtr<$t>,
-//                 time: CTime,
-//             ) -> COption<$t> {
-//                 if ptr.is_null() {
-//                     return COption::none();
-//                 }
+    impl<V> From<MaybeValue<V>> for CMaybeValue<V>
+    where
+        V: Default,
+    {
+        fn from(v: MaybeValue<V>) -> Self {
+            match v {
+                MaybeValue::Value(v) => CMaybeValue::value(v),
+                MaybeValue::OutOfRange => CMaybeValue::out_of_range(),
+            }
+        }
+    }
 
-//                 let ptr = &*ptr;
-//                 COption::from_option(ptr.borrow().value(time.into()))
-//             }
-//         };
-//     }
-//     macro_rules! define_value_convert {
-//         ($t1:ident, $t2:ident, $value:ident) => {
-//             #[no_mangle]
-//             pub unsafe extern "C" fn $value(
-//                 ptr: *mut IndicatorPtr<$t1>,
-//                 time: CTime,
-//             ) -> COption<$t2> {
-//                 if ptr.is_null() {
-//                     return COption::none();
-//                 }
+    pub unsafe fn destroy<T>(ptr: *mut T) {
+        if ptr.is_null() {
+            return;
+        }
+        // ここ Box にする必要ある？？
+        let boxed = Box::from_raw(ptr);
+        drop(boxed);
+    }
 
-//                 let ptr = &*ptr;
-//                 COption::from_option(ptr.borrow().value(time.into()).map($t2::from))
-//             }
-//         };
-//     }
-//     define_value!(f64, indicator_value_f64);
-//     define_value!(i32, indicator_value_i32);
-//     use cross::ffi::*;
-//     use cross::*;
-//     define_value_convert!(CrossState, CCrossState, indicator_value_cross);
-//     use crate::position::*;
-//     use crate::position::ffi::*;
-//     define_value_convert!(SimplePosition, CSimplePosition, indicator_value_simpleposition);
-//     use trailing_stop::ffi::*;
-//     use trailing_stop::*;
-//     define_value_convert!(TrailingStopSignal, CTrailingStopSignal, indicator_value_trailingstopsignal);
-// }
+    #[derive(Clone)]
+    pub struct FuncIndicatorPtr<V>(pub Rc<RefCell<dyn FuncIndicator<VarGranularity, V>>>);
+
+    impl<V> Indicator<VarGranularity, V> for FuncIndicatorPtr<V> {
+        fn granularity(&self) -> VarGranularity {
+            self.granularity()
+        }
+    }
+
+    impl<V> FuncIndicator<VarGranularity, V> for FuncIndicatorPtr<V> {
+        fn value(&self, time: Time<VarGranularity>) -> MaybeValue<V> {
+            self.value(time)
+        }
+    }
+
+    impl<V> Deref for FuncIndicatorPtr<V> {
+        type Target = Rc<RefCell<dyn FuncIndicator<VarGranularity, V>>>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct IterIndicatorPtr<V>(pub Rc<RefCell<dyn IterIndicator<VarGranularity, V>>>);
+
+    impl<V> Indicator<VarGranularity, V> for IterIndicatorPtr<V> {
+        fn granularity(&self) -> VarGranularity {
+            self.granularity()
+        }
+    }
+
+    impl<V> IterIndicator<VarGranularity, V> for IterIndicatorPtr<V> {
+        fn next(&mut self) -> MaybeValue<V> {
+            self.next()
+        }
+
+        fn offset(&self) -> Time<VarGranularity> {
+            self.offset()
+        }
+    }
+
+    impl<V> Deref for IterIndicatorPtr<V> {
+        type Target = Rc<RefCell<dyn IterIndicator<VarGranularity, V>>>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    macro_rules! define_value {
+        ($t:ident, $value:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $value(
+                ptr: *mut FuncIndicatorPtr<$t>,
+                time: CTime,
+            ) -> CMaybeValue<$t> {
+                if ptr.is_null() {
+                    return CMaybeValue::out_of_range();
+                }
+
+                let ptr = &*ptr;
+                CMaybeValue::from(ptr.borrow().value(time.into()))
+            }
+        };
+    }
+    macro_rules! define_value_convert {
+        ($t1:ident, $t2:ident, $value:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $value(
+                ptr: *mut FuncIndicatorPtr<$t1>,
+                time: CTime,
+            ) -> CMaybeValue<$t2> {
+                if ptr.is_null() {
+                    return CMaybeValue::out_of_range();
+                }
+
+                let ptr = &*ptr;
+                CMaybeValue::from(ptr.borrow().value(time.into()).map($t2::from))
+            }
+        };
+    }
+    define_value!(f64, indicator_value_f64);
+    define_value!(i32, indicator_value_i32);
+    // use cross::ffi::*;
+    // use cross::*;
+    // define_value_convert!(CrossState, CCrossState, indicator_value_cross);
+    // use crate::position::ffi::*;
+    // use crate::position::*;
+    // define_value_convert!(
+    //     SimplePosition,
+    //     CSimplePosition,
+    //     indicator_value_simpleposition
+    // );
+    // use trailing_stop::ffi::*;
+    // use trailing_stop::*;
+    // define_value_convert!(
+    //     TrailingStopSignal,
+    //     CTrailingStopSignal,
+    //     indicator_value_trailingstopsignal
+    // );
+}
 
 pub mod cached;
 pub mod complement;

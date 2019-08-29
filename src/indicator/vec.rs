@@ -45,7 +45,7 @@ where
     }
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
@@ -60,7 +60,8 @@ mod ffi {
     #[repr(C)]
     pub struct Ptr<V> {
         b_ptr: *mut Rc<RefCell<VecIndicator<VarGranularity, V>>>,
-        t_ptr: *mut IndicatorPtr<V>,
+        f_ptr: *mut FuncIndicatorPtr<V>,
+        i_ptr: *mut IterIndicatorPtr<V>,
     }
 
     macro_rules! define_vec_methods {
@@ -72,20 +73,19 @@ mod ffi {
                 length: c_int,
             ) -> Ptr<$t> {
                 let array: &[$t] = std::slice::from_raw_parts(array, length as usize);
-                let ptr = Rc::new(RefCell::new(VecIndicator::new(
-                    offset.into(),
-                    array.to_vec(),
-                )));
+                let ptr = VecIndicator::new(offset.into(), array.to_vec()).into_sync_ptr();
                 Ptr {
                     b_ptr: Box::into_raw(Box::new(ptr.clone())),
-                    t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
+                    f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+                    i_ptr: ptr::null_mut(),
                 }
             }
 
             #[no_mangle]
             pub unsafe extern "C" fn $destroy(ptr: Ptr<$t>) {
                 destroy(ptr.b_ptr);
-                destroy(ptr.t_ptr);
+                destroy(ptr.f_ptr);
+                destroy(ptr.i_ptr);
             }
         };
     }
