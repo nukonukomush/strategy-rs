@@ -352,8 +352,15 @@ pub mod ffi {
         }
     }
 
+    #[repr(C)]
+    pub struct Ptr<V, I> {
+        pub b_ptr: *mut Rc<RefCell<I>>,
+        pub f_ptr: *mut FuncIndicatorPtr<V>,
+        pub i_ptr: *mut IterIndicatorPtr<V>,
+    }
+
     macro_rules! define_value {
-        ($t:ident, $value:ident) => {
+        ($t:ty, $value:ident) => {
             #[no_mangle]
             pub unsafe extern "C" fn $value(
                 ptr: *mut FuncIndicatorPtr<$t>,
@@ -369,7 +376,7 @@ pub mod ffi {
         };
     }
     macro_rules! define_value_convert {
-        ($t1:ident, $t2:ident, $value:ident) => {
+        ($t1:ty, $t2:ty, $value:ident) => {
             #[no_mangle]
             pub unsafe extern "C" fn $value(
                 ptr: *mut FuncIndicatorPtr<$t1>,
@@ -380,12 +387,13 @@ pub mod ffi {
                 }
 
                 let ptr = &*ptr;
-                CMaybeValue::from(ptr.borrow().value(time.into()).map($t2::from))
+                CMaybeValue::from(ptr.borrow().value(time.into()).map(<$t2>::from))
             }
         };
     }
     define_value!(f64, indicator_value_f64);
     define_value!(i32, indicator_value_i32);
+    define_value_convert!(Option<f64>, COption<f64>, indicator_value_option_f64);
     // use cross::ffi::*;
     // use cross::*;
     // define_value_convert!(CrossState, CCrossState, indicator_value_cross);

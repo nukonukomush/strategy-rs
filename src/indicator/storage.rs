@@ -79,7 +79,7 @@ where
     }
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
 mod hash_ffi {
     use super::*;
     use crate::indicator::ffi::*;
@@ -91,77 +91,75 @@ mod hash_ffi {
     use std::ptr;
     use std::rc::Rc;
 
-    #[repr(C)]
-    pub struct Ptr<V> {
-        b_ptr: *mut Rc<RefCell<Storage<VarGranularity, V>>>,
-        t_ptr: *mut IndicatorPtr<V>,
-    }
+    type IPtr<V> = Ptr<Option<V>, Storage<VarGranularity, V>>;
 
-    macro_rules! define_hash_methods {
-        ($t:ty, $new:ident, $destroy:ident, $set:ident) => {
+    macro_rules! define_storage_methods {
+        ($t:ty, $new:ident, $destroy:ident, $add:ident) => {
             #[no_mangle]
-            pub unsafe extern "C" fn $new(granularity: VarGranularity) -> Ptr<$t> {
-                let ptr = Rc::new(RefCell::new(Storage::new(granularity)));
+            pub unsafe extern "C" fn $new(offset: CTime) -> IPtr<$t> {
+                let ptr = Rc::new(RefCell::new(Storage::new(offset.into())));
                 Ptr {
                     b_ptr: Box::into_raw(Box::new(ptr.clone())),
-                    t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
+                    f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+                    i_ptr: ptr::null_mut(),
                 }
             }
 
             #[no_mangle]
-            pub unsafe extern "C" fn $destroy(ptr: Ptr<$t>) {
+            pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
                 destroy(ptr.b_ptr);
-                destroy(ptr.t_ptr);
+                destroy(ptr.f_ptr);
+                destroy(ptr.i_ptr);
             }
 
             #[no_mangle]
-            pub unsafe extern "C" fn $set(ptr: Ptr<$t>, time: CTime, value: $t) {
+            pub unsafe extern "C" fn $add(ptr: IPtr<$t>, time: CTime, value: $t) {
                 let ptr = ptr.b_ptr;
                 if ptr.is_null() {
                     return;
                 }
 
                 let ptr = &*ptr;
-                ptr.borrow_mut().insert(time.into(), value);
+                ptr.borrow_mut().add(time.into(), value);
             }
         };
     }
 
-    define_hash_methods!(f64, hash_new_f64, hash_destroy_f64, hash_set_f64);
+    define_storage_methods!(f64, storage_new_f64, storage_destroy_f64, storage_add_f64);
 
-    use crate::position::ffi::*;
-    use crate::position::*;
-    #[no_mangle]
-    pub unsafe extern "C" fn hash_new_simpleposition(
-        granularity: VarGranularity,
-    ) -> Ptr<SimplePosition> {
-        let ptr = Rc::new(RefCell::new(Storage::new(granularity)));
-        Ptr {
-            b_ptr: Box::into_raw(Box::new(ptr.clone())),
-            t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
-        }
-    }
+    // use crate::position::ffi::*;
+    // use crate::position::*;
+    // #[no_mangle]
+    // pub unsafe extern "C" fn hash_new_simpleposition(
+    //     granularity: VarGranularity,
+    // ) -> Ptr<SimplePosition> {
+    //     let ptr = Rc::new(RefCell::new(Storage::new(granularity)));
+    //     Ptr {
+    //         b_ptr: Box::into_raw(Box::new(ptr.clone())),
+    //         t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
+    //     }
+    // }
 
-    #[no_mangle]
-    pub unsafe extern "C" fn hash_destroy_simpleposition(ptr: Ptr<SimplePosition>) {
-        destroy(ptr.b_ptr);
-        destroy(ptr.t_ptr);
-    }
+    // #[no_mangle]
+    // pub unsafe extern "C" fn hash_destroy_simpleposition(ptr: Ptr<SimplePosition>) {
+    //     destroy(ptr.b_ptr);
+    //     destroy(ptr.t_ptr);
+    // }
 
-    #[no_mangle]
-    pub unsafe extern "C" fn hash_set_simpleposition(
-        ptr: Ptr<SimplePosition>,
-        time: CTime,
-        value: CSimplePosition,
-    ) {
-        let ptr = ptr.b_ptr;
-        if ptr.is_null() {
-            return;
-        }
+    // #[no_mangle]
+    // pub unsafe extern "C" fn hash_set_simpleposition(
+    //     ptr: Ptr<SimplePosition>,
+    //     time: CTime,
+    //     value: CSimplePosition,
+    // ) {
+    //     let ptr = ptr.b_ptr;
+    //     if ptr.is_null() {
+    //         return;
+    //     }
 
-        let ptr = &*ptr;
-        ptr.borrow_mut().insert(time.into(), value.into());
-    }
+    //     let ptr = &*ptr;
+    //     ptr.borrow_mut().insert(time.into(), value.into());
+    // }
 }
 
 #[cfg(test)]

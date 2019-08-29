@@ -11,7 +11,12 @@ type_map = {
 }
 
 def default(T):
-    return 0
+    defaults = {
+        c_int: lambda: 0,
+        c_double: lambda: 0.0,
+        Option(c_double): Option(c_double).none,
+    }
+    return defaults[T]()
 
 def get_rust_type(T):
     if T in type_map:
@@ -23,6 +28,68 @@ def get_rust_type(T):
 dirname = os.path.dirname(os.path.abspath(__file__))
 # mydll = cdll.LoadLibrary("{}/../target/debug/libstrategy.dylib".format(dirname))
 mydll = cdll.LoadLibrary("{}/libstrategy.dylib".format(dirname))
+
+def get_func(cls, method, T):
+    t_str = get_rust_type(T)
+    name = "{}_{}_{}".format(cls, method, t_str)
+    return getattr(mydll, name)
+
+def Option_eq(self, other):
+    # print(self.__class__, other.__class__)
+    if other is None or not isinstance(other, self.__class__):
+        return False
+    if self.is_some == other.is_some:
+        if self.is_some:
+            return self.content == other.content
+        else:
+            return True
+    else:
+        return False
+
+def Option_repr(self):
+    if self.is_some:
+        return "Some({})".format(str(self.content))
+    else:
+        return "None"
+
+def Option_nullable(self):
+    if self.is_some:
+        return self.content
+    return None
+
+def Option_from_nullable(T, n):
+    if n is None:
+        return Option(T).none()
+    return Option(T).some(n)
+
+option_types = {}
+for T, t_str in type_map.items():
+    def def_option(t):
+        T = t
+        option_t_str = "Option_{}".format(t_str)
+        option_types[T] = type(option_t_str, (Structure,), {
+            "__eq__": Option_eq,
+            "__repr__": Option_repr,
+            "nullable": Option_nullable,
+        })
+        option_types[T]._fields_ = [
+            ("is_some", c_byte),
+            ("content", T),
+        ]
+        option_types[T].some = lambda v: option_types[T](1, v)
+        option_types[T].none = lambda : option_types[T](0, default(T))
+        option_types[T].from_nullable = Option_from_nullable
+        option_types[T].T = T
+    def_option(T)
+
+def Option(T):
+    if T in option_types:
+        return option_types[T]
+    else:
+        raise TypeError("type {} is not available for Option.".format(T))
+
+type_map[Option(c_double)] = "option_f64"
+type_map[Option(c_int)] = "option_i32"
 
 def MaybeValue_eq(self, other):
     print(self.__class__, other.__class__)
@@ -78,59 +145,6 @@ def MaybeValue(T):
     else:
         raise TypeError("type {} is not available for MaybeValue.".format(T))
 
-def Option_eq(self, other):
-    # print(self.__class__, other.__class__)
-    if other is None or not isinstance(other, self.__class__):
-        return False
-    if self.is_some == other.is_some:
-        if self.is_some:
-            return self.content == other.content
-        else:
-            return True
-    else:
-        return False
-
-def Option_repr(self):
-    if self.is_some:
-        return "Some({})".format(str(self.content))
-    else:
-        return "None"
-
-def Option_nullable(self):
-    if self.is_some:
-        return self.content
-    return None
-
-def Option_from_nullable(T, n):
-    if n is None:
-        return Option(T).none()
-    return Option(T).some(n)
-
-option_types = {}
-for T, t_str in type_map.items():
-    def def_option(t):
-        T = t
-        option_t_str = "Option_{}".format(t_str)
-        option_types[T] = type(option_t_str, (Structure,), {
-            "__eq__": Option_eq,
-            "__repr__": Option_repr,
-            "nullable": Option_nullable,
-        })
-        option_types[T]._fields_ = [
-            ("is_some", c_byte),
-            ("content", T),
-        ]
-        option_types[T].some = lambda v: option_types[T](1, v)
-        option_types[T].none = lambda : option_types[T](0, default(T))
-        option_types[T].from_nullable = Option_from_nullable
-        option_types[T].T = T
-    def_option(T)
-
-def Option(T):
-    if T in option_types:
-        return option_types[T]
-    else:
-        raise TypeError("type {} is not available for Option.".format(T))
 
 from datetime import datetime
 class Time(Structure):
@@ -195,61 +209,63 @@ class Ptr(Structure):
         ("i_ptr", c_void_p),
     ]
 
-getattr(mydll, "indicator_value_{}".format("f64")).argtypes = [c_void_p, Time]
-getattr(mydll, "indicator_value_{}".format("f64")).restype = MaybeValue(c_double)
-getattr(mydll, "indicator_value_{}".format("i32")).argtypes = [c_void_p, Time]
-getattr(mydll, "indicator_value_{}".format("i32")).restype = MaybeValue(c_int)
+get_func("indicator", "value", c_double).argtypes = [c_void_p, Time]
+get_func("indicator", "value", c_double).restype = MaybeValue(c_double)
+get_func("indicator", "value", c_int).argtypes = [c_void_p, Time]
+get_func("indicator", "value", c_int).restype = MaybeValue(c_int)
+get_func("indicator", "value", Option(c_double)).argtypes = [c_void_p, Time]
+get_func("indicator", "value", Option(c_double)).restype = MaybeValue(Option(c_double))
 # getattr(mydll, "indicator_value_{}".format("simpleposition")).argtypes = [c_void_p, Time]
 # getattr(mydll, "indicator_value_{}".format("simpleposition")).restype = Option(c_int)
 
 class Vec:
-    for T, t_str in {
-        c_double: "f64",
-    }.items():
-        getattr(mydll, "vec_new_{}".format(t_str)).argtypes = [Time, POINTER(T), c_int]
-        getattr(mydll, "vec_new_{}".format(t_str)).restype = Ptr
-        getattr(mydll, "vec_destroy_{}".format(t_str)).argtypes = [Ptr]
-        getattr(mydll, "vec_destroy_{}".format(t_str)).restype = None
+    for T in [
+        c_double,
+    ]:
+        get_func("vec", "new", T).argtypes = [Time, POINTER(T), c_int]
+        get_func("vec", "new", T).restype = Ptr
+        get_func("vec", "destroy", T).argtypes = [Ptr]
+        get_func("vec", "destroy", T).restype = None
 
     def __init__(self, offset, T, vec):
         self.T = T
         length = len(vec)
         arr = (T * length)(*vec)
         ptr = POINTER(T)(arr)
-        self.ptr = getattr(mydll, "vec_new_{}".format(get_rust_type(self.T)))(offset, ptr, length)
+        self.ptr = get_func("vec", "new", self.T)(offset, ptr, length)
 
     def value(self, i):
-        return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.ptr.f_ptr, i)
+        return get_func("indicator", "value", self.T)(self.ptr.f_ptr, i)
 
     def __del__(self):
-        getattr(mydll, "vec_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
+        get_func("vec", "destroy", self.T)(self.ptr)
         self.ptr = None
 
-# class Hash:
-#     for T, t_str in {
-#         c_double: "f64",
-#         SimplePosition: "simpleposition",
-#     }.items():
-#         getattr(mydll, "hash_new_{}".format(t_str)).argtypes = [c_int]
-#         getattr(mydll, "hash_new_{}".format(t_str)).restype = Ptr
-#         getattr(mydll, "hash_destroy_{}".format(t_str)).argtypes = [Ptr]
-#         getattr(mydll, "hash_destroy_{}".format(t_str)).restype = None
-#         getattr(mydll, "hash_set_{}".format(t_str)).argtypes = [Ptr, Time, T]
-#         getattr(mydll, "hash_set_{}".format(t_str)).restype = None
+class Storage:
+    for T in [
+        c_double,
+        # SimplePosition,
+    ]:
+        get_func("storage", "new", T).argtypes = [Time]
+        get_func("storage", "new", T).restype = Ptr
+        get_func("storage", "destroy", T).argtypes = [Ptr]
+        get_func("storage", "destroy", T).restype = None
+        get_func("storage", "add", T).argtypes = [Ptr, Time, T]
+        get_func("storage", "add", T).restype = None
 
-#     def __init__(self, T, granularity):
-#         self.T = T
-#         self.ptr = getattr(mydll, "hash_new_{}".format(get_rust_type(self.T)))(granularity)
+    def __init__(self, T, granularity):
+        self.T = T
+        self.ptr = get_func("storage", "new", self.T)(granularity)
 
-#     def value(self, i):
-#         return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.ptr.f_ptr, i)
+    def value(self, i):
+        return get_func("indicator", "value", Option(self.T))(self.ptr.f_ptr, i)
 
-#     def __del__(self):
-#         getattr(mydll, "hash_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
-#         self.ptr = None
+    def __del__(self):
+        get_func("storage", "destroy", self.T)(self.ptr)
+        self.ptr = None
 
-#     def set(self, time, value):
-#         getattr(mydll, "hash_set_{}".format(get_rust_type(self.T)))(self.ptr, time, value)
+    def add(self, time, value):
+        get_func("storage", "add", self.T)(self.ptr, time, value)
 
 
 # class Sma:

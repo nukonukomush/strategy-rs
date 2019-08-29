@@ -57,12 +57,7 @@ mod ffi {
     use std::ptr;
     use std::rc::Rc;
 
-    #[repr(C)]
-    pub struct Ptr<V> {
-        b_ptr: *mut Rc<RefCell<VecIndicator<VarGranularity, V>>>,
-        f_ptr: *mut FuncIndicatorPtr<V>,
-        i_ptr: *mut IterIndicatorPtr<V>,
-    }
+    type IPtr<V> = Ptr<V, VecIndicator<VarGranularity, V>>;
 
     macro_rules! define_vec_methods {
         ($t:ty, $new:ident, $destroy:ident) => {
@@ -71,7 +66,7 @@ mod ffi {
                 offset: CTime,
                 array: *const $t,
                 length: c_int,
-            ) -> Ptr<$t> {
+            ) -> IPtr<$t> {
                 let array: &[$t] = std::slice::from_raw_parts(array, length as usize);
                 let ptr = VecIndicator::new(offset.into(), array.to_vec()).into_sync_ptr();
                 Ptr {
@@ -82,7 +77,7 @@ mod ffi {
             }
 
             #[no_mangle]
-            pub unsafe extern "C" fn $destroy(ptr: Ptr<$t>) {
+            pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
                 destroy(ptr.b_ptr);
                 destroy(ptr.f_ptr);
                 destroy(ptr.i_ptr);

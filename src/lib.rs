@@ -25,8 +25,33 @@ pub mod ffi {
                 value: value,
             }
         }
+    }
 
-        pub fn from_option(value: Option<T>) -> Self {
+    impl<T> Default for COption<T>
+    where
+        T: Default,
+    {
+        fn default() -> Self {
+            Self::none()
+        }
+    }
+
+    impl<T> Into<Option<T>> for COption<T>
+    {
+        fn into(self) -> Option<T> {
+            if self.is_some == 0 {
+                None
+            } else {
+                Some(self.value)
+            }
+        }
+    }
+
+    impl<T> From<Option<T>> for COption<T>
+    where
+        T: Default,
+    {
+        fn from(value: Option<T>) -> Self {
             match value {
                 Some(value) => Self::some(value),
                 None => Self::none(),
