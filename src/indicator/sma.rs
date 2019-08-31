@@ -50,7 +50,7 @@ where
     }
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
@@ -62,28 +62,26 @@ mod ffi {
     use std::ptr;
     use std::rc::Rc;
 
-    #[repr(C)]
-    pub struct Ptr<V> {
-        b_ptr: *mut Rc<RefCell<Sma<VarGranularity, IndicatorPtr<V>>>>,
-        t_ptr: *mut IndicatorPtr<V>,
-    }
+    type IPtr<V> = Ptr<V, Sma<VarGranularity, FuncIndicatorPtr<V>>>;
 
     macro_rules! define_sma_methods {
         ($t:ty, $new:ident, $destroy:ident) => {
             #[no_mangle]
-            pub unsafe extern "C" fn $new(source: *mut IndicatorPtr<$t>, period: c_int) -> Ptr<$t> {
+            pub unsafe extern "C" fn $new(source: *mut FuncIndicatorPtr<$t>, period: c_int) -> IPtr<$t> {
                 let source = (*source).clone();
                 let ptr = Rc::new(RefCell::new(Sma::new(source, period as usize)));
                 Ptr {
                     b_ptr: Box::into_raw(Box::new(ptr.clone())),
-                    t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
+                    f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+                    i_ptr: ptr::null_mut(),
                 }
             }
 
             #[no_mangle]
-            pub unsafe extern "C" fn $destroy(ptr: Ptr<$t>) {
+            pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
                 destroy(ptr.b_ptr);
-                destroy(ptr.t_ptr);
+                destroy(ptr.f_ptr);
+                destroy(ptr.i_ptr);
             }
         };
     }

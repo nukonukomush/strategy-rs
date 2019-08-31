@@ -22,9 +22,6 @@ data_1 = {
 }
 
 
-def test_aaa():
-    print(ffi.MaybeValue(c_double).value(1))
-
 def test_vec():
     offset = ffi.Time(0, 5)
     source = [1, 2, 3, 4, 5]
@@ -65,24 +62,23 @@ def test_storage():
 
     assert result == expect
 
-# def test_sma():
-#     offset = ffi.Time(0, 10)
-#     source = [1, 2, 3, 4, 5]
-#     expect = [
-#         ffi.Option(c_double).none(),
-#         ffi.Option(c_double).none(),
-#         ffi.Option(c_double).some(2),
-#         ffi.Option(c_double).some(3),
-#         ffi.Option(c_double).some(4),
-#         ffi.Option(c_double).none(),
-#     ]
+def test_sma():
+    offset = ffi.Time(0, 10)
+    source = [1, 2, 3, 4, 5]
+    expect = [
+        ffi.MaybeValue(c_double).out_of_range(),
+        ffi.MaybeValue(c_double).out_of_range(),
+        ffi.MaybeValue(c_double).value(2),
+        ffi.MaybeValue(c_double).value(3),
+        ffi.MaybeValue(c_double).value(4),
+        ffi.MaybeValue(c_double).out_of_range(),
+    ]
 
-#     vec = ffi.Vec(offset, c_double, source)
-#     sma = ffi.Sma(c_double, vec, 3)
-#     cached_sma = ffi.Cached(c_double, 10, sma)
-#     result = [cached_sma.value(offset + i) for i in range(0, 6)]
+    vec = ffi.Vec(offset, c_double, source)
+    sma = ffi.Sma(c_double, vec, 3)
+    result = [sma.value(offset + i) for i in range(0, 6)]
 
-#     assert result == expect
+    assert result == expect
 
 # def test_cross():
 #     offset = ffi.Time("2019-01-01 00:00:00", 60)

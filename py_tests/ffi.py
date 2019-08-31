@@ -218,96 +218,95 @@ get_func("indicator", "value", Option(c_double)).restype = MaybeValue(Option(c_d
 # getattr(mydll, "indicator_value_{}".format("simpleposition")).argtypes = [c_void_p, Time]
 # getattr(mydll, "indicator_value_{}".format("simpleposition")).restype = Option(c_int)
 
-class Vec:
+class Indicator:
+    _cls_ = None
+    for T in [
+        c_double,
+        c_int,
+        Option(c_double),
+    ]:
+        get_func("indicator", "value", T).argtypes = [c_void_p, Time]
+        get_func("indicator", "value", T).restype = MaybeValue(T)
+
+    def value(self, i):
+        return get_func("indicator", "value", self._T)(self._ptr.f_ptr, i)
+
+    def __del__(self):
+        get_func(self._cls_, "destroy", self._T)(self._ptr)
+        self._ptr = None
+
+
+class Vec(Indicator):
+    _cls_ = "vec"
     for T in [
         c_double,
     ]:
-        get_func("vec", "new", T).argtypes = [Time, POINTER(T), c_int]
-        get_func("vec", "new", T).restype = Ptr
-        get_func("vec", "destroy", T).argtypes = [Ptr]
-        get_func("vec", "destroy", T).restype = None
+        get_func(_cls_, "new", T).argtypes = [Time, POINTER(T), c_int]
+        get_func(_cls_, "new", T).restype = Ptr
+        get_func(_cls_, "destroy", T).argtypes = [Ptr]
+        get_func(_cls_, "destroy", T).restype = None
 
     def __init__(self, offset, T, vec):
-        self.T = T
+        self._T = T
         length = len(vec)
         arr = (T * length)(*vec)
         ptr = POINTER(T)(arr)
-        self.ptr = get_func("vec", "new", self.T)(offset, ptr, length)
+        self._ptr = get_func(self._cls_, "new", self._T)(offset, ptr, length)
 
-    def value(self, i):
-        return get_func("indicator", "value", self.T)(self.ptr.f_ptr, i)
-
-    def __del__(self):
-        get_func("vec", "destroy", self.T)(self.ptr)
-        self.ptr = None
-
-class Storage:
+class Storage(Indicator):
+    _cls_ = "storage"
     for T in [
         c_double,
         # SimplePosition,
     ]:
-        get_func("storage", "new", T).argtypes = [Time]
-        get_func("storage", "new", T).restype = Ptr
-        get_func("storage", "destroy", T).argtypes = [Ptr]
-        get_func("storage", "destroy", T).restype = None
-        get_func("storage", "add", T).argtypes = [Ptr, Time, T]
-        get_func("storage", "add", T).restype = None
+        get_func(_cls_, "new", T).argtypes = [Time]
+        get_func(_cls_, "new", T).restype = Ptr
+        get_func(_cls_, "destroy", T).argtypes = [Ptr]
+        get_func(_cls_, "destroy", T).restype = None
+        get_func(_cls_, "add", T).argtypes = [Ptr, Time, T]
+        get_func(_cls_, "add", T).restype = None
 
     def __init__(self, T, granularity):
-        self.T = T
-        self.ptr = get_func("storage", "new", self.T)(granularity)
+        self._T = T
+        self._ptr = get_func(self._cls_, "new", self._T)(granularity)
 
     def value(self, i):
-        return get_func("indicator", "value", Option(self.T))(self.ptr.f_ptr, i)
-
-    def __del__(self):
-        get_func("storage", "destroy", self.T)(self.ptr)
-        self.ptr = None
+        return get_func("indicator", "value", Option(self._T))(self._ptr.f_ptr, i)
 
     def add(self, time, value):
-        get_func("storage", "add", self.T)(self.ptr, time, value)
+        get_func(self._cls_, "add", self._T)(self._ptr, time, value)
 
 
-# class Sma:
-#     for T, t_str in {
-#         c_double: "f64",
-#     }.items():
-#         getattr(mydll, "sma_new_{}".format(t_str)).argtypes = [c_void_p, c_int]
-#         getattr(mydll, "sma_new_{}".format(t_str)).restype = Ptr
-#         getattr(mydll, "sma_destroy_{}".format(t_str)).argtypes = [Ptr]
-#         getattr(mydll, "sma_destroy_{}".format(t_str)).restype = None
-
-#     def __init__(self, T, source, period):
-#         self.T = T
-#         self.ptr = getattr(mydll, "sma_new_{}".format(get_rust_type(self.T)))(source.ptr.f_ptr, period)
-
-#     def value(self, i):
-#         return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.ptr.f_ptr, i)
-
-#     def __del__(self):
-#         getattr(mydll, "sma_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
-#         self.ptr = None
-
-class Cached:
+class Cached(Indicator):
+    _cls_ = "cached"
     for T in [
         c_double,
     ]:
-        get_func("cached", "new", T).argtypes = [c_int, c_void_p]
-        get_func("cached", "new", T).restype = Ptr
-        get_func("cached", "destroy", T).argtypes = [Ptr]
-        get_func("cached", "destroy", T).restype = None
+        get_func(_cls_, "new", T).argtypes = [c_int, c_void_p]
+        get_func(_cls_, "new", T).restype = Ptr
+        get_func(_cls_, "destroy", T).argtypes = [Ptr]
+        get_func(_cls_, "destroy", T).restype = None
 
     def __init__(self, T, capacity, source):
-        self.T = T
-        self.ptr = get_func("cached", "new", self.T)(capacity, source.ptr.f_ptr)
+        self._T = T
+        self._ptr = get_func(self._cls_, "new", self.T)(capacity, source._ptr.f_ptr)
 
-    def value(self, i):
-        f = get_func("indicator", "value", self.T)
-        return get_func("indicator", "value", self.T)(self.ptr.f_ptr, i)
 
-    def __del__(self):
-        get_func("cached", "destroy", self.T)(self.ptr)
-        self.ptr = None
+class Sma(Indicator):
+    _cls_ = "sma"
+    for T in [
+        c_double,
+    ]:
+        get_func(_cls_, "new", T).argtypes = [c_void_p, c_int]
+        get_func(_cls_, "new", T).restype = Ptr
+        get_func(_cls_, "destroy", T).argtypes = [Ptr]
+        get_func(_cls_, "destroy", T).restype = None
+
+    def __init__(self, T, source, period):
+        self._T = T
+        self._ptr = get_func(self._cls_, "new", self._T)(source._ptr.f_ptr, period)
+
+
 
 
 # CrossState = c_int
