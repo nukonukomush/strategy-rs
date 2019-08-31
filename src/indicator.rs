@@ -144,6 +144,7 @@ pub trait Provisional<G, V> {
 //         self.granularity()
 //     }
 // }
+//
 
 impl<G, V, I> Indicator<G, V> for RefCell<I>
 where
@@ -309,13 +310,13 @@ pub mod ffi {
 
     impl<V> Indicator<VarGranularity, V> for FuncIndicatorPtr<V> {
         fn granularity(&self) -> VarGranularity {
-            self.granularity()
+            self.0.borrow().granularity()
         }
     }
 
     impl<V> FuncIndicator<VarGranularity, V> for FuncIndicatorPtr<V> {
         fn value(&self, time: Time<VarGranularity>) -> MaybeValue<V> {
-            self.value(time)
+            self.0.borrow().value(time)
         }
     }
 
@@ -331,17 +332,17 @@ pub mod ffi {
 
     impl<V> Indicator<VarGranularity, V> for IterIndicatorPtr<V> {
         fn granularity(&self) -> VarGranularity {
-            self.granularity()
+            self.0.borrow().granularity()
         }
     }
 
     impl<V> IterIndicator<VarGranularity, V> for IterIndicatorPtr<V> {
         fn next(&mut self) -> MaybeValue<V> {
-            self.next()
+            self.0.borrow_mut().next()
         }
 
         fn offset(&self) -> Time<VarGranularity> {
-            self.offset()
+            self.0.borrow().offset()
         }
     }
 

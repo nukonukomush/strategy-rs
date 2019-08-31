@@ -288,25 +288,26 @@ class Storage:
 #         getattr(mydll, "sma_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
 #         self.ptr = None
 
-# class Cached:
-#     for T, t_str in {
-#         c_double: "f64",
-#     }.items():
-#         getattr(mydll, "cached_new_{}".format(t_str)).argtypes = [c_int, c_void_p]
-#         getattr(mydll, "cached_new_{}".format(t_str)).restype = Ptr
-#         getattr(mydll, "cached_destroy_{}".format(t_str)).argtypes = [Ptr]
-#         getattr(mydll, "cached_destroy_{}".format(t_str)).restype = None
+class Cached:
+    for T in [
+        c_double,
+    ]:
+        get_func("cached", "new", T).argtypes = [c_int, c_void_p]
+        get_func("cached", "new", T).restype = Ptr
+        get_func("cached", "destroy", T).argtypes = [Ptr]
+        get_func("cached", "destroy", T).restype = None
 
-#     def __init__(self, T, capacity, source):
-#         self.T = T
-#         self.ptr = getattr(mydll, "cached_new_{}".format(get_rust_type(self.T)))(capacity, source.ptr.f_ptr)
+    def __init__(self, T, capacity, source):
+        self.T = T
+        self.ptr = get_func("cached", "new", self.T)(capacity, source.ptr.f_ptr)
 
-#     def value(self, i):
-#         return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.ptr.f_ptr, i)
+    def value(self, i):
+        f = get_func("indicator", "value", self.T)
+        return get_func("indicator", "value", self.T)(self.ptr.f_ptr, i)
 
-#     def __del__(self):
-#         getattr(mydll, "cached_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
-#         self.ptr = None
+    def __del__(self):
+        get_func("cached", "destroy", self.T)(self.ptr)
+        self.ptr = None
 
 
 # CrossState = c_int

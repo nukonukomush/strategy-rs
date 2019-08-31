@@ -38,9 +38,9 @@ def test_vec():
      ]
 
     vec = ffi.Vec(offset, c_double, source)
-    # cached_vec = ffi.Cached(c_double, 10, vec)
-    # result = [cached_vec.value(offset + i) for i in range(0, 6)]
-    result = [vec.value(offset + i) for i in range(0, 6)]
+    cached_vec = ffi.Cached(c_double, 10, vec)
+    result = [cached_vec.value(offset + i) for i in range(0, 6)]
+    # result = [vec.value(offset + i) for i in range(0, 6)]
 
     assert result == expect
 
