@@ -70,7 +70,7 @@ where
     }
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
 pub mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
@@ -82,36 +82,32 @@ pub mod ffi {
     use std::ptr;
     use std::rc::Rc;
 
-    #[repr(C)]
-    pub struct Ptr<V> {
-        b_ptr: *mut Rc<RefCell<ComplementWithLastValue<VarGranularity, V, IndicatorPtr<V>>>>,
-        t_ptr: *mut IndicatorPtr<V>,
-    }
+    type IPtr<V> = Ptr<V, ComplementWithLastValue<VarGranularity, V, FuncIndicatorPtr<Option<V>>>>;
 
     macro_rules! define_cmpl_methods {
         ($t:ty, $new:ident, $destroy:ident) => {
             #[no_mangle]
             pub unsafe extern "C" fn $new(
-                source: *mut IndicatorPtr<$t>,
-                max_loop: c_int,
+                source: *mut FuncIndicatorPtr<Option<$t>>,
                 capacity: c_int,
-            ) -> Ptr<$t> {
+            ) -> IPtr<$t> {
                 let source = (*source).clone();
                 let ptr = Rc::new(RefCell::new(ComplementWithLastValue::new(
                     source,
-                    max_loop as usize,
                     capacity as usize,
                 )));
                 Ptr {
                     b_ptr: Box::into_raw(Box::new(ptr.clone())),
-                    t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
+                    f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+                    i_ptr: ptr::null_mut(),
                 }
             }
 
             #[no_mangle]
-            pub unsafe extern "C" fn $destroy(ptr: Ptr<$t>) {
+            pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
                 destroy(ptr.b_ptr);
-                destroy(ptr.t_ptr);
+                destroy(ptr.f_ptr);
+                destroy(ptr.i_ptr);
             }
         };
     }

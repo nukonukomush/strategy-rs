@@ -35,7 +35,6 @@ def get_func(cls, method, T):
     return getattr(mydll, name)
 
 def Option_eq(self, other):
-    # print(self.__class__, other.__class__)
     if other is None or not isinstance(other, self.__class__):
         return False
     if self.is_some == other.is_some:
@@ -92,7 +91,6 @@ type_map[Option(c_double)] = "option_f64"
 type_map[Option(c_int)] = "option_i32"
 
 def MaybeValue_eq(self, other):
-    print(self.__class__, other.__class__)
     if other is None or not isinstance(other, self.__class__):
         return False
     if self.is_value == other.is_value:
@@ -306,6 +304,19 @@ class Sma(Indicator):
         self._T = T
         self._ptr = get_func(self._cls_, "new", self._T)(source._ptr.f_ptr, period)
 
+class Cmpl(Indicator):
+    _cls_ = "cmpl"
+    for T in [
+        c_double,
+    ]:
+        get_func(_cls_, "new", T).argtypes = [c_void_p, c_int]
+        get_func(_cls_, "new", T).restype = Ptr
+        get_func(_cls_, "destroy", T).argtypes = [Ptr]
+        get_func(_cls_, "destroy", T).restype = None
+
+    def __init__(self, T, source, capacity):
+        self._T = T
+        self._ptr = get_func(self._cls_, "new", self._T)(source._ptr.f_ptr, capacity)
 
 
 
@@ -332,25 +343,6 @@ class Sma(Indicator):
 #         getattr(mydll, "cross_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
 #         self.ptr = None
 
-# class Cmpl:
-#     for T, t_str in {
-#         c_double: "f64",
-#     }.items():
-#         getattr(mydll, "cmpl_new_{}".format(t_str)).argtypes = [c_void_p, c_int, c_int]
-#         getattr(mydll, "cmpl_new_{}".format(t_str)).restype = Ptr
-#         getattr(mydll, "cmpl_destroy_{}".format(t_str)).argtypes = [Ptr]
-#         getattr(mydll, "cmpl_destroy_{}".format(t_str)).restype = None
-
-#     def __init__(self, T, source, max_loop, capacity):
-#         self.T = T
-#         self.ptr = getattr(mydll, "cmpl_new_{}".format(get_rust_type(self.T)))(source.ptr.f_ptr, max_loop, capacity)
-
-#     def value(self, i):
-#         return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.ptr.f_ptr, i)
-
-#     def __del__(self):
-#         getattr(mydll, "cmpl_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
-#         self.ptr = None
 
 # class Func:
 #     def __init__(self, T, value_func, *sources):

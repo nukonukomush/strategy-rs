@@ -80,6 +80,27 @@ def test_sma():
 
     assert result == expect
 
+def test_cmpl():
+    offset = ffi.Time(0, 5)
+    source = [1, 2, None, 4, 5]
+    expect = [
+        ffi.MaybeValue(c_double).value(1),
+        ffi.MaybeValue(c_double).value(2),
+        ffi.MaybeValue(c_double).value(2),
+        ffi.MaybeValue(c_double).value(4),
+        ffi.MaybeValue(c_double).value(5),
+        ffi.MaybeValue(c_double).out_of_range(),
+     ]
+
+    h = ffi.Storage(c_double, offset)
+    for i, v in enumerate(source):
+        if v is not None:
+            h.add(offset + i, v)
+    cmpl = ffi.Cmpl(c_double, h, 10)
+    result = [cmpl.value(offset + i) for i in range(0, 6)]
+
+    assert result == expect
+
 # def test_cross():
 #     offset = ffi.Time("2019-01-01 00:00:00", 60)
 #     source_1 = [0, 0, 2, 2, 0, 1, 1, 2, 1, 0]
