@@ -12,7 +12,6 @@ impl<G, V, I> ComplementWithLastValue<G, V, I>
 where
     G: Granularity + Eq + std::hash::Hash + Copy,
     V: Clone,
-    I: FuncIndicator<G, Option<V>>,
 {
     pub fn new(source: I, capacity: usize) -> Self {
         Self {
@@ -22,18 +21,12 @@ where
         }
     }
 
-    fn get_from_cache(&self, time: Time<G>) -> MaybeValue<Option<V>> {
-        let maybe = self.cache.borrow_mut().get(&time).map(|v| v.clone());
-        match maybe {
-            Some(v) => MaybeValue::Value(v),
-            None => match self.source.value(time) {
-                MaybeValue::Value(v) => {
-                    self.cache.borrow_mut().insert(time, v.clone());
-                    MaybeValue::Value(v)
-                }
-                MaybeValue::OutOfRange => MaybeValue::OutOfRange,
-            },
-        }
+    fn get_cache(&self, time: Time<G>) -> Option<Option<V>> {
+        self.cache.borrow_mut().get(&time).map(|v| v.clone())
+    }
+
+    fn set_cache(&self, time: Time<G>, value: Option<V>) {
+        self.cache.borrow_mut().insert(time, value);
     }
 }
 
@@ -56,16 +49,22 @@ where
     I: FuncIndicator<G, Option<V>>,
 {
     fn value(&self, time: Time<G>) -> MaybeValue<V> {
-        let mut t = time;
-        let mut value = try_value!(self.get_from_cache(t));
-        while value.is_none() {
-            t = t - 1;
-            value = try_value!(self.get_from_cache(t));
-        }
-        self.cache.borrow_mut().insert(time, value.clone());
-        match value {
-            Some(v) => MaybeValue::Value(v),
-            None => MaybeValue::OutOfRange,
+        let cache = self.get_cache(time);
+        match cache {
+            Some(Some(v)) => MaybeValue::Value(v),
+            Some(None) => MaybeValue::OutOfRange,
+            None => {
+                let src_value = try_value!(self.source.value(time));
+                let value = match src_value {
+                    Some(v) => MaybeValue::Value(v),
+                    None => self.value(time - 1),
+                };
+                match value.clone() {
+                    MaybeValue::Value(v) => self.set_cache(time, Some(v)),
+                    MaybeValue::OutOfRange => self.set_cache(time, None),
+                };
+                value
+            }
         }
     }
 }
