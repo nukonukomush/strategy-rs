@@ -395,9 +395,9 @@ pub mod ffi {
     define_value!(f64, indicator_value_f64);
     define_value!(i32, indicator_value_i32);
     define_value_convert!(Option<f64>, COption<f64>, indicator_value_option_f64);
-    // use cross::ffi::*;
-    // use cross::*;
-    // define_value_convert!(CrossState, CCrossState, indicator_value_cross);
+    use cross::ffi::*;
+    use cross::*;
+    define_value_convert!(CrossState, CCrossState, indicator_value_cross);
     // use crate::position::ffi::*;
     // use crate::position::*;
     // define_value_convert!(

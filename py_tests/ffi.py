@@ -4,10 +4,15 @@ from ctypes import *
 class SimplePosition(c_int):
     pass
 
+class CrossState(c_int):
+    pass
+
+
 type_map = {
     c_int: "i32",
     c_double: "f64",
-    # SimplePosition: "simpleposition",
+    SimplePosition: "simple_position",
+    CrossState: "cross",
 }
 
 def default(T):
@@ -15,6 +20,8 @@ def default(T):
         c_int: lambda: 0,
         c_double: lambda: 0.0,
         Option(c_double): Option(c_double).none,
+        CrossState: 0,
+        SimplePosition: 0,
     }
     return defaults[T]()
 
@@ -207,12 +214,12 @@ class Ptr(Structure):
         ("i_ptr", c_void_p),
     ]
 
-get_func("indicator", "value", c_double).argtypes = [c_void_p, Time]
-get_func("indicator", "value", c_double).restype = MaybeValue(c_double)
-get_func("indicator", "value", c_int).argtypes = [c_void_p, Time]
-get_func("indicator", "value", c_int).restype = MaybeValue(c_int)
-get_func("indicator", "value", Option(c_double)).argtypes = [c_void_p, Time]
-get_func("indicator", "value", Option(c_double)).restype = MaybeValue(Option(c_double))
+# get_func("indicator", "value", c_double).argtypes = [c_void_p, Time]
+# get_func("indicator", "value", c_double).restype = MaybeValue(c_double)
+# get_func("indicator", "value", c_int).argtypes = [c_void_p, Time]
+# get_func("indicator", "value", c_int).restype = MaybeValue(c_int)
+# get_func("indicator", "value", Option(c_double)).argtypes = [c_void_p, Time]
+# get_func("indicator", "value", Option(c_double)).restype = MaybeValue(Option(c_double))
 # getattr(mydll, "indicator_value_{}".format("simpleposition")).argtypes = [c_void_p, Time]
 # getattr(mydll, "indicator_value_{}".format("simpleposition")).restype = Option(c_int)
 
@@ -222,6 +229,7 @@ class Indicator:
         c_double,
         c_int,
         Option(c_double),
+        CrossState,
     ]:
         get_func("indicator", "value", T).argtypes = [c_void_p, Time]
         get_func("indicator", "value", T).restype = MaybeValue(T)
@@ -320,28 +328,24 @@ class Cmpl(Indicator):
 
 
 
-# CrossState = c_int
 # getattr(mydll, "indicator_value_cross").argtypes = [c_void_p, Time]
 # getattr(mydll, "indicator_value_cross").restype = Option(c_int)
-# class Cross:
-#     for T, t_str in {
-#         c_double: "f64",
-#     }.items():
-#         getattr(mydll, "cross_new_{}".format(t_str)).argtypes = [c_void_p, c_void_p]
-#         getattr(mydll, "cross_new_{}".format(t_str)).restype = Ptr
-#         getattr(mydll, "cross_destroy_{}".format(t_str)).argtypes = [Ptr]
-#         getattr(mydll, "cross_destroy_{}".format(t_str)).restype = None
+class Cross:
+    _cls_ = "cross"
+    for T, t_str in {
+        c_double: "f64",
+    }.items():
+        get_func(_cls_, "new", T).argtypes = [c_void_p, c_void_p]
+        get_func(_cls_, "new", T).restype = Ptr
+        get_func(_cls_, "destroy", T).argtypes = [Ptr]
+        get_func(_cls_, "destroy", T).restype = None
 
-#     def __init__(self, T, source_1, source_2):
-#         self.T = T
-#         self.ptr = getattr(mydll, "cross_new_{}".format(get_rust_type(self.T)))(source_1.ptr.f_ptr, source_2.ptr.f_ptr)
+    def __init__(self, T, source_1, source_2):
+        self._T = T
+        self._ptr = get_func(self._cls_, "new", self._T)(source_1._ptr.f_ptr, source_2._ptr.f_ptr)
 
-#     def value(self, i):
-#         return getattr(mydll, "indicator_value_cross")(self.ptr.f_ptr, i)
-
-#     def __del__(self):
-#         getattr(mydll, "cross_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
-#         self.ptr = None
+    def value(self, i):
+        return get_func("indicator", "value", CrossState)(self._ptr.f_ptr, i)
 
 
 # class Func:
