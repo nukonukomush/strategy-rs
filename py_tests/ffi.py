@@ -214,15 +214,6 @@ class Ptr(Structure):
         ("i_ptr", c_void_p),
     ]
 
-# get_func("indicator", "value", c_double).argtypes = [c_void_p, Time]
-# get_func("indicator", "value", c_double).restype = MaybeValue(c_double)
-# get_func("indicator", "value", c_int).argtypes = [c_void_p, Time]
-# get_func("indicator", "value", c_int).restype = MaybeValue(c_int)
-# get_func("indicator", "value", Option(c_double)).argtypes = [c_void_p, Time]
-# get_func("indicator", "value", Option(c_double)).restype = MaybeValue(Option(c_double))
-# getattr(mydll, "indicator_value_{}".format("simpleposition")).argtypes = [c_void_p, Time]
-# getattr(mydll, "indicator_value_{}".format("simpleposition")).restype = Option(c_int)
-
 class Indicator:
     _cls_ = None
     for T, T2 in {
@@ -326,10 +317,6 @@ class Cmpl(Indicator):
         self._T = T
         self._ptr = get_func(self._cls_, "new", self._T)(source._ptr.f_ptr, capacity)
 
-
-
-# getattr(mydll, "indicator_value_cross").argtypes = [c_void_p, Time]
-# getattr(mydll, "indicator_value_cross").restype = Option(c_int)
 class Cross:
     _cls_ = "cross"
     for T, t_str in {
@@ -347,42 +334,34 @@ class Cross:
     def value(self, i):
         return get_func("indicator", "value", CrossState)(self._ptr.f_ptr, i)
 
+class Func:
+    def __init__(self, T, value_func, *sources):
+        self.T = T
+        self.sources = sources
+        self.value_func = value_func
 
-# class Func:
-#     def __init__(self, T, value_func, *sources):
-#         self.T = T
-#         self.sources = sources
-#         self.value_func = value_func
+    def value(self, i):
+        args = [source.value(i) for source in self.sources]
+        out_of_range_args = [arg for arg in args if arg.is_value == 0 ]
+        if len(out_of_range_args) == 0:
+            v = self.value_func(*[arg.content for arg in args])
+            return MaybeValue(self.T).value(v)
+        return MaybeValue(self.T).out_of_range()
 
-#     def value(self, i):
-#         return Option(self.T).from_nullable(self.T, self.value_nullable(i))
+class Slope(Indicator):
+    _cls_ = "slope"
+    for T in [
+        c_double,
+    ]:
+        get_func(_cls_, "new", T).argtypes = [c_void_p]
+        get_func(_cls_, "new", T).restype = Ptr
+        get_func(_cls_, "destroy", T).argtypes = [Ptr]
+        get_func(_cls_, "destroy", T).restype = None
 
-#     def value_nullable(self, i):
-#         args = [source.value(i).nullable() for source in self.sources]
-#         none_args = [arg for arg in args if arg is None]
-#         if len(none_args) == 0:
-#             return self.value_func(*args)
-#         return None
+    def __init__(self, T, source):
+        self._T = T
+        self._ptr = get_func(self._cls_, "new", self._T)(source._ptr.f_ptr)
 
-# class Slope:
-#     for T, t_str in {
-#         c_double: "f64",
-#     }.items():
-#         getattr(mydll, "slope_new_{}".format(t_str)).argtypes = [c_void_p]
-#         getattr(mydll, "slope_new_{}".format(t_str)).restype = Ptr
-#         getattr(mydll, "slope_destroy_{}".format(t_str)).argtypes = [Ptr]
-#         getattr(mydll, "slope_destroy_{}".format(t_str)).restype = None
-
-#     def __init__(self, T, source):
-#         self.T = T
-#         self.ptr = getattr(mydll, "slope_new_{}".format(get_rust_type(self.T)))(source.ptr.f_ptr)
-
-#     def value(self, i):
-#         return getattr(mydll, "indicator_value_{}".format(get_rust_type(self.T)))(self.ptr.f_ptr, i)
-
-#     def __del__(self):
-#         getattr(mydll, "slope_destroy_{}".format(get_rust_type(self.T)))(self.ptr)
-#         self.ptr = None
 
 
 # TrailingStopSignal = c_int

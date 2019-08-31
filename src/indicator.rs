@@ -423,5 +423,5 @@ pub mod sma;
 pub mod storage;
 pub mod stream;
 pub mod vec;
-// pub mod slope;
+pub mod slope;
 // pub mod trailing_stop;
