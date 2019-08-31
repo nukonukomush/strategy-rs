@@ -101,30 +101,30 @@ def test_cmpl():
 
     assert result == expect
 
-# def test_cross():
-#     offset = ffi.Time("2019-01-01 00:00:00", 60)
-#     source_1 = [0, 0, 2, 2, 0, 1, 1, 2, 1, 0]
-#     source_2 = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-#     expect = [
-#         ffi.Option(c_int).some(0),
-#         ffi.Option(c_int).some(0),
-#         ffi.Option(c_int).some(1),
-#         ffi.Option(c_int).some(0),
-#         ffi.Option(c_int).some(-1),
-#         ffi.Option(c_int).some(0),
-#         ffi.Option(c_int).some(0),
-#         ffi.Option(c_int).some(1),
-#         ffi.Option(c_int).some(0),
-#         ffi.Option(c_int).some(-1),
-#         ffi.Option(c_int).none(),
-#     ]
+def test_cross():
+    offset = ffi.Time("2019-01-01 00:00:00", 60)
+    source_1 = [0, 0, 2, 2, 0, 1, 1, 2, 1, 0]
+    source_2 = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    expect = [
+        ffi.MaybeValue(c_int).value(0),
+        ffi.MaybeValue(c_int).value(0),
+        ffi.MaybeValue(c_int).value(1),
+        ffi.MaybeValue(c_int).value(0),
+        ffi.MaybeValue(c_int).value(-1),
+        ffi.MaybeValue(c_int).value(0),
+        ffi.MaybeValue(c_int).value(0),
+        ffi.MaybeValue(c_int).value(1),
+        ffi.MaybeValue(c_int).value(0),
+        ffi.MaybeValue(c_int).value(-1),
+        ffi.MaybeValue(c_int).out_of_range(),
+    ]
 
-#     vec_1 = ffi.Vec(offset, c_double, source_1)
-#     vec_2 = ffi.Vec(offset, c_double, source_2)
-#     cross = ffi.Cross(c_double, vec_1, vec_2)
-#     result = [cross.value(offset + i) for i in range(0, 11)]
+    vec_1 = ffi.Vec(offset, c_double, source_1)
+    vec_2 = ffi.Vec(offset, c_double, source_2)
+    cross = ffi.Cross(c_double, vec_1, vec_2)
+    result = [cross.value(offset + i) for i in range(0, 11)]
 
-#     assert result == expect
+    assert result == expect
 
 # def test_cmpl():
 #     offset = ffi.Time(0, 5)

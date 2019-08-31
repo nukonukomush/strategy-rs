@@ -225,14 +225,14 @@ class Ptr(Structure):
 
 class Indicator:
     _cls_ = None
-    for T in [
-        c_double,
-        c_int,
-        Option(c_double),
-        CrossState,
-    ]:
+    for T, T2 in {
+        c_double: c_double,
+        c_int: c_int,
+        Option(c_double): Option(c_double),
+        CrossState: c_int,
+    }.items():
         get_func("indicator", "value", T).argtypes = [c_void_p, Time]
-        get_func("indicator", "value", T).restype = MaybeValue(T)
+        get_func("indicator", "value", T).restype = MaybeValue(T2)
 
     def value(self, i):
         return get_func("indicator", "value", self._T)(self._ptr.f_ptr, i)
