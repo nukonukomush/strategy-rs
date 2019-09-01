@@ -352,11 +352,11 @@ where
     I: IterIndicator<G, V>,
 {
     fn next(&mut self) -> MaybeValue<V> {
-        self.source.next()
+        self.source.borrow_mut().next()
     }
 
     fn offset(&self) -> Time<G> {
-        self.source.offset()
+        self.source.borrow().offset()
     }
 }
 

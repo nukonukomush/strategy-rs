@@ -164,19 +164,6 @@ where
     }
 }
 
-impl<G, V, I> IterIndicator<G, V> for RefCell<I>
-where
-    I: IterIndicator<G, V>,
-{
-    fn next(&mut self) -> MaybeValue<V> {
-        (*self.borrow_mut()).next()
-    }
-
-    fn offset(&self) -> Time<G> {
-        (*self.borrow_mut()).offset()
-    }
-}
-
 use std::ops::Deref;
 impl<G, V, I> Indicator<G, V> for Rc<I>
 where
@@ -193,19 +180,6 @@ where
 {
     fn value(&self, time: Time<G>) -> MaybeValue<V> {
         self.deref().value(time)
-    }
-}
-
-impl<G, V, I> IterIndicator<G, V> for Rc<RefCell<I>>
-where
-    I: IterIndicator<G, V>,
-{
-    fn next(&mut self) -> MaybeValue<V> {
-        (*self.borrow_mut()).next()
-    }
-
-    fn offset(&self) -> Time<G> {
-        (*self.borrow_mut()).offset()
     }
 }
 
@@ -327,37 +301,10 @@ pub mod ffi {
         }
     }
 
-    #[derive(Clone)]
-    pub struct IterIndicatorPtr<V>(pub Rc<RefCell<dyn IterIndicator<VarGranularity, V>>>);
-
-    impl<V> Indicator<VarGranularity, V> for IterIndicatorPtr<V> {
-        fn granularity(&self) -> VarGranularity {
-            self.0.borrow().granularity()
-        }
-    }
-
-    impl<V> IterIndicator<VarGranularity, V> for IterIndicatorPtr<V> {
-        fn next(&mut self) -> MaybeValue<V> {
-            self.0.borrow_mut().next()
-        }
-
-        fn offset(&self) -> Time<VarGranularity> {
-            self.0.borrow().offset()
-        }
-    }
-
-    impl<V> Deref for IterIndicatorPtr<V> {
-        type Target = Rc<RefCell<dyn IterIndicator<VarGranularity, V>>>;
-        fn deref(&self) -> &Self::Target {
-            &self.0
-        }
-    }
-
     #[repr(C)]
     pub struct Ptr<V, I> {
         pub b_ptr: *mut Rc<RefCell<I>>,
         pub f_ptr: *mut FuncIndicatorPtr<V>,
-        pub i_ptr: *mut IterIndicatorPtr<V>,
     }
 
     macro_rules! define_value {

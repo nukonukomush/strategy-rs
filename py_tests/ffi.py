@@ -211,7 +211,6 @@ class Ptr(Structure):
     _fields_ = [
         ("b_ptr", c_void_p),
         ("f_ptr", c_void_p),
-        ("i_ptr", c_void_p),
     ]
 
 class Indicator:

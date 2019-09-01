@@ -72,7 +72,6 @@ mod ffi {
                 Ptr {
                     b_ptr: Box::into_raw(Box::new(ptr.clone())),
                     f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
-                    i_ptr: ptr::null_mut(),
                 }
             }
 
@@ -80,7 +79,6 @@ mod ffi {
             pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
                 destroy(ptr.b_ptr);
                 destroy(ptr.f_ptr);
-                destroy(ptr.i_ptr);
             }
         };
     }
