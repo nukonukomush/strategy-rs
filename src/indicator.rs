@@ -120,13 +120,6 @@ pub trait IterIndicator<G, V>: Indicator<G, V> {
     {
         stream::IterStorage::new(self)
     }
-
-    fn into_sync_ptr(self) -> Rc<RefCell<Self>>
-    where
-        Self: Sized,
-    {
-        Rc::new(RefCell::new(self))
-    }
 }
 
 pub trait Provisional<G, V> {
@@ -361,15 +354,67 @@ pub mod ffi {
     // );
 }
 
+pub mod ffi_iter {
+    use super::*;
+    use crate::indicator::ffi::*;
+    use crate::indicator::*;
+    use crate::time::ffi::*;
+    use std::cell::RefCell;
+    use std::mem::drop;
+    use std::os::raw::*;
+    use std::ptr;
+    use std::rc::Rc;
+    use stream::*;
+
+    type G = VarGranularity;
+    type IPtr<V> = Ptr<V, IterVec<G, V, FuncIter<G, FuncIndicatorPtr<V>>>>;
+    // type IPtr<V> = Ptr<V, IterVec<G, V, Map<G, V, V, kjFuncIter<G, FuncIndicatorPtr<V>>>>;
+
+    // pub struct CallBack<V1, V2> {
+    //     cb: extern "C" fn(V1) -> V2,
+    // }
+
+    // impl<V1, V2> FnMut(Args) for CallBack<V1, V2> {
+    // }
+
+    macro_rules! define_via_iter_methods {
+        ($t:ty, $new:ident, $destroy:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $new(
+                source: *mut FuncIndicatorPtr<$t>,
+                offset: CTime,
+            ) -> IPtr<$t> {
+                let source = (*source).clone();
+                let ptr = Rc::new(RefCell::new(IterVec::new(FuncIter::new(
+                    source,
+                    offset.into(),
+                ))));
+                Ptr {
+                    b_ptr: Box::into_raw(Box::new(ptr.clone())),
+                    f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+                }
+            }
+
+            #[no_mangle]
+            pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
+                destroy(ptr.b_ptr);
+                destroy(ptr.f_ptr);
+            }
+        };
+    }
+
+    define_via_iter_methods!(f64, via_iter_new_f64, via_iter_destroy_f64);
+}
+
 pub mod cached;
 pub mod complement;
 pub mod convert_granularity;
 pub mod cross;
 pub mod ordering;
+pub mod slope;
 pub mod sma;
 pub mod storage;
 pub mod stream;
 pub mod vec;
-pub mod slope;
 // pub mod trailing_stop;
 pub mod count;

@@ -231,6 +231,56 @@ where
     }
 }
 
+pub struct IterVec<G, V, I> {
+    source: RefCell<I>,
+    vec: RefCell<vec::VecIndicator<G, V>>,
+}
+
+impl<G, V, I> IterVec<G, V, I>
+where
+    G: Granularity + Copy + Ord,
+    I: IterIndicator<G, V>,
+{
+    // TODO: initial capacity
+    pub fn new(source: I) -> Self {
+        Self {
+            vec: RefCell::new(vec::VecIndicator::new(source.offset(), Vec::new())),
+            source: RefCell::new(source),
+        }
+    }
+
+    fn update_to(&self, time: Time<G>) {
+        let mut source = self.source.borrow_mut();
+        while source.offset() <= time {
+            match source.next() {
+                MaybeValue::Value(v) => self.vec.borrow_mut().add(v),
+                MaybeValue::OutOfRange => return,
+            }
+        }
+    }
+}
+
+impl<G, V, I> Indicator<G, V> for IterVec<G, V, I>
+where
+    I: Indicator<G, V>,
+{
+    fn granularity(&self) -> G {
+        self.source.granularity()
+    }
+}
+
+impl<G, V, I> FuncIndicator<G, V> for IterVec<G, V, I>
+where
+    G: Granularity + Copy + Ord,
+    V: Clone,
+    I: IterIndicator<G, V>,
+{
+    fn value(&self, time: Time<G>) -> MaybeValue<V> {
+        self.update_to(time);
+        self.vec.value(time)
+    }
+}
+
 pub struct IterStorage<G, V, I> {
     source: I,
     storage: storage::Storage<G, V>,
@@ -248,7 +298,6 @@ where
             source: source,
         }
     }
-
 }
 
 impl<G, V, I> IterStorage<G, V, I>
@@ -320,7 +369,9 @@ where
 {
     // TODO: initial capacity
     pub fn new(source: IterStorage<G, V, I>) -> Self {
-        Self { source: RefCell::new(source) }
+        Self {
+            source: RefCell::new(source),
+        }
     }
 }
 
@@ -394,5 +445,25 @@ mod tests {
         });
         let result = iter.into_std().collect::<Vec<_>>();
         assert_eq!(result, expect);
+    }
+
+    #[test]
+    fn test_via_iter() {
+        let offset = Time::new(0, S5);
+        let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let mut sum = 0.0;
+        let count = Rc::new(RefCell::new(0));
+        let count_move = count.clone();
+
+        let vec = VecIndicator::new(offset, source.clone());
+        let iter = IterVec::new(IterIndicator::map(vec.into_iter(offset), move |v| {
+            *count_move.borrow_mut() += 1;
+            sum += v;
+            sum
+        }));
+        assert_eq!(iter.value(offset + 4), MaybeValue::Value(15.0));
+        assert_eq!(iter.value(offset + 5), MaybeValue::OutOfRange);
+        assert_eq!(iter.value(offset + 3), MaybeValue::Value(10.0));
+        assert_eq!(*count.borrow(), 5);
     }
 }

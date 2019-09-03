@@ -18,6 +18,10 @@ where
             vec: source,
         }
     }
+
+    pub fn add(&mut self, value: V) {
+        self.vec.push(value)
+    }
 }
 
 impl<G, V> Indicator<G, V> for VecIndicator<G, V>
@@ -60,7 +64,7 @@ mod ffi {
     type IPtr<V> = Ptr<V, VecIndicator<VarGranularity, V>>;
 
     macro_rules! define_vec_methods {
-        ($t:ty, $new:ident, $destroy:ident) => {
+        ($t:ty, $new:ident, $destroy:ident, $add:ident) => {
             #[no_mangle]
             pub unsafe extern "C" fn $new(
                 offset: CTime,
@@ -80,10 +84,21 @@ mod ffi {
                 destroy(ptr.b_ptr);
                 destroy(ptr.f_ptr);
             }
+
+            #[no_mangle]
+            pub unsafe extern "C" fn $add(ptr: IPtr<$t>, value: $t) {
+                let ptr = ptr.b_ptr;
+                if ptr.is_null() {
+                    return;
+                }
+
+                let ptr = &*ptr;
+                ptr.borrow_mut().add(value);
+            }
         };
     }
 
-    define_vec_methods!(f64, vec_new_f64, vec_destroy_f64);
+    define_vec_methods!(f64, vec_new_f64, vec_destroy_f64, vec_add_f64);
 }
 
 #[cfg(test)]

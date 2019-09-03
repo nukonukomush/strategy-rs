@@ -168,6 +168,33 @@ def test_slope():
 
     assert result == expect
 
+def test_iter_func():
+    offset = ffi.Time(0, 10)
+    source = [1, 2, 4, 8, 6]
+    expect = [
+        ffi.MaybeValue(c_double).value(1),
+        ffi.MaybeValue(c_double).value(3),
+        ffi.MaybeValue(c_double).value(7),
+        ffi.MaybeValue(c_double).value(15),
+        ffi.MaybeValue(c_double).value(21),
+        ffi.MaybeValue(c_double).out_of_range(),
+    ]
+
+    s = 0
+    def func(v):
+        nonlocal s
+        s += v
+        return s
+
+    vec = ffi.Vec(offset, c_double, source)
+    f = ffi.IterFunc(c_double, c_double, vec, offset, func)
+
+    assert f.value(offset + 4) == ffi.MaybeValue(c_double).value(21)
+
+    result = [f.value(offset + i) for i in range(0, 6)]
+    assert result == expect
+
+
 # def test_trailing_stop():
 #     offset = ffi.Time("2019-01-01 00:00:00", 60)
 #     source_price = [1, 2, -3, 8, 3]

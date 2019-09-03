@@ -241,6 +241,8 @@ class Vec(Indicator):
         get_func(_cls_, "new", T).restype = Ptr
         get_func(_cls_, "destroy", T).argtypes = [Ptr]
         get_func(_cls_, "destroy", T).restype = None
+        get_func(_cls_, "add", T).argtypes = [Ptr, T]
+        get_func(_cls_, "add", T).restype = None
 
     def __init__(self, offset, T, vec):
         self._T = T
@@ -248,6 +250,10 @@ class Vec(Indicator):
         arr = (T * length)(*vec)
         ptr = POINTER(T)(arr)
         self._ptr = get_func(self._cls_, "new", self._T)(offset, ptr, length)
+
+    def add(self, value):
+        get_func(self._cls_, "add", self._T)(self._ptr, value)
+
 
 class Storage(Indicator):
     _cls_ = "storage"
@@ -361,6 +367,46 @@ class Slope(Indicator):
         self._T = T
         self._ptr = get_func(self._cls_, "new", self._T)(source._ptr.f_ptr)
 
+class IterFunc:
+    def __init__(self, T1, T2, source, offset, func):
+        self.T1 = T1
+        self.T2 = T2
+        self.source = source
+        self.offset = offset
+        self.func = func
+        self.vec = Vec(offset, self.T2, [])
+        self._ptr = self.vec._ptr
+
+    def __next(self):
+        v = self.source.value(self.offset)
+        if v.is_value:
+            self.offset += 1
+            v2 = self.func(v.content)
+            self.vec.add(v2)
+            return MaybeValue(self.T2).value(v2)
+        else:
+            return v
+
+    def value(self, i):
+        while self.offset <= i:
+            v = self.__next();
+            if v.is_value == 0:
+                break
+        return self.vec.value(i)
+
+# class ViaIterMap(Indicator):
+#     _cls_ = "via_iter"
+#     for T in [
+#         c_double,
+#     ]:
+#         get_func(_cls_, "new", T).argtypes = [c_void_p, Time]
+#         get_func(_cls_, "new", T).restype = Ptr
+#         get_func(_cls_, "destroy", T).argtypes = [Ptr]
+#         get_func(_cls_, "destroy", T).restype = None
+
+#     def __init__(self, T, source):
+#         self._T = T
+#         self._ptr = get_func(self._cls_, "new", self._T)(source._ptr.f_ptr)
 
 
 # TrailingStopSignal = c_int
