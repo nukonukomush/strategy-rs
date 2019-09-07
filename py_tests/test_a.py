@@ -61,44 +61,44 @@ def test_vec_tid():
     result = [cached_vec.value(offset + i) for i in range(0, 6)]
     assert result == expect
 
-# def test_storage():
-#     offset = ffi.Time(0, 5)
-#     source = [1, 2, None, 4, 5]
-#     ffi.Option(c_double).none()
-#     expect = [
-#         ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(1)),
-#         ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(2)),
-#         ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).none()),
-#         ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(4)),
-#         ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(5)),
-#         ffi.MaybeValue(ffi.Option(c_double)).out_of_range(),
-#     ]
+def test_storage():
+    offset = ffi.Time(0, 5)
+    source = [1, 2, None, 4, 5]
+    ffi.Option(c_double).none()
+    expect = [
+        ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(1)),
+        ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(2)),
+        ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).none()),
+        ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(4)),
+        ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(5)),
+        ffi.MaybeValue(ffi.Option(c_double)).out_of_range(),
+    ]
 
-#     h = ffi.Storage(c_double, offset)
-#     for i, v in enumerate(source):
-#         if v is not None:
-#             h.add(offset + i, v)
-#     result = [h.value(offset + i) for i in range(0, 6)]
+    h = ffi.Storage(ffi.Time, c_double, offset)
+    for i, v in enumerate(source):
+        if v is not None:
+            h.add(offset + i, v)
+    result = [h.value(offset + i) for i in range(0, 6)]
 
-#     assert result == expect
+    assert result == expect
 
-# def test_sma():
-#     offset = ffi.Time(0, 10)
-#     source = [1, 2, 3, 4, 5]
-#     expect = [
-#         ffi.MaybeValue(c_double).out_of_range(),
-#         ffi.MaybeValue(c_double).out_of_range(),
-#         ffi.MaybeValue(c_double).value(2),
-#         ffi.MaybeValue(c_double).value(3),
-#         ffi.MaybeValue(c_double).value(4),
-#         ffi.MaybeValue(c_double).out_of_range(),
-#     ]
+def test_sma():
+    offset = ffi.Time(0, 10)
+    source = [1, 2, 3, 4, 5]
+    expect = [
+        ffi.MaybeValue(c_double).out_of_range(),
+        ffi.MaybeValue(c_double).out_of_range(),
+        ffi.MaybeValue(c_double).value(2),
+        ffi.MaybeValue(c_double).value(3),
+        ffi.MaybeValue(c_double).value(4),
+        ffi.MaybeValue(c_double).out_of_range(),
+    ]
 
-#     vec = ffi.Vec(offset, c_double, source)
-#     sma = ffi.Sma(c_double, vec, 3)
-#     result = [sma.value(offset + i) for i in range(0, 6)]
+    vec = ffi.Vec(ffi.Time, c_double, source, offset)
+    sma = ffi.Sma(ffi.Time, c_double, vec, 3)
+    result = [sma.value(offset + i) for i in range(0, 6)]
 
-#     assert result == expect
+    assert result == expect
 
 # def test_cmpl():
 #     offset = ffi.Time(0, 5)

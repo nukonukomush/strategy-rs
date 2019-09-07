@@ -1,5 +1,5 @@
-use crate::time::*;
 use crate::seq::*;
+use crate::time::*;
 use crate::*;
 use std::collections::HashMap;
 
@@ -82,51 +82,103 @@ where
     }
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
 mod hash_ffi {
     use super::*;
+    use crate::granularity::ffi::*;
     use crate::indicator::ffi::*;
     use crate::indicator::*;
-    use crate::seq::ffi::*;
-    use std::cell::RefCell;
-    use std::mem::drop;
-    use std::os::raw::*;
-    use std::ptr;
-    use std::rc::Rc;
+    use crate::time::ffi::*;
 
-    type IPtr<V> = Ptr<Option<V>, Storage<VarGranularity, V>>;
+    type IPtr<S, V> = Ptr<S, Option<V>, Storage<S, V>>;
 
-    macro_rules! define_storage_methods {
-        ($t:ty, $new:ident, $destroy:ident, $add:ident) => {
+    pub unsafe fn new<S, CS, V>(offset: CS) -> IPtr<S, V>
+    where
+        S: Sequence + 'static,
+        CS: Into<S>,
+        V: Clone + 'static,
+    {
+        let ptr = Rc::new(RefCell::new(Storage::new(offset.into())));
+        Ptr {
+            b_ptr: Box::into_raw(Box::new(ptr.clone())),
+            f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+        }
+    }
+
+    macro_rules! define_new {
+        ($s:ty, $cs:ty, $v:ty, $cv:ty, $name:ident) => {
             #[no_mangle]
-            pub unsafe extern "C" fn $new(offset: CTime) -> IPtr<$t> {
-                let ptr = Rc::new(RefCell::new(Storage::new(offset.into())));
-                Ptr {
-                    b_ptr: Box::into_raw(Box::new(ptr.clone())),
-                    f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
-                }
-            }
-
-            #[no_mangle]
-            pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
-                destroy(ptr.b_ptr);
-                destroy(ptr.f_ptr);
-            }
-
-            #[no_mangle]
-            pub unsafe extern "C" fn $add(ptr: IPtr<$t>, seq: CTime, value: $t) {
-                let ptr = ptr.b_ptr;
-                if ptr.is_null() {
-                    return;
-                }
-
-                let ptr = &*ptr;
-                ptr.borrow_mut().add(seq.into(), value);
+            pub unsafe extern "C" fn $name(offset: $cs) -> IPtr<$s, $v> {
+                new(offset)
             }
         };
     }
 
-    define_storage_methods!(f64, storage_new_f64, storage_destroy_f64, storage_add_f64);
+    pub unsafe fn add<S, CS, V, CV>(ptr: IPtr<S, V>, seq: CS, value: CV)
+    where
+        S: Sequence,
+        CS: Into<S>,
+        V: Clone,
+        CV: Into<V> + Clone,
+    {
+        let ptr = ptr.b_ptr;
+        if ptr.is_null() {
+            return;
+        }
+
+        let ptr = &*ptr;
+        ptr.borrow_mut().add(seq.into(), value.into());
+    }
+
+    macro_rules! define_add {
+        ($ptr:ty, $cs:ty, $cv:ty, $name:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $name(ptr: $ptr, seq: $cs, value: $cv) {
+                add(ptr, seq, value)
+            }
+        };
+    }
+
+    define_new!(GTime<Var>, CTime, f64, f64, storage_new_time_f64);
+    define_new!(TransactionId, i64, f64, f64, storage_new_tid_f64);
+
+    define_destroy!(IPtr<GTime<Var>, f64>, storage_destroy_time_f64);
+    define_destroy!(IPtr<TransactionId, f64>, storage_destroy_tid_f64);
+
+    define_add!(IPtr<GTime<Var>, f64>, CTime, f64, storage_add_time_f64);
+    define_add!(IPtr<TransactionId, f64>, i64, f64, storage_add_tid_f64);
+
+    // macro_rules! define_storage_methods {
+    //     ($t:ty, $new:ident, $destroy:ident, $add:ident) => {
+    //         #[no_mangle]
+    //         pub unsafe extern "C" fn $new(offset: CTime) -> IPtr<$t> {
+    //             let ptr = Rc::new(RefCell::new(Storage::new(offset.into())));
+    //             Ptr {
+    //                 b_ptr: Box::into_raw(Box::new(ptr.clone())),
+    //                 f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+    //             }
+    //         }
+
+    //         #[no_mangle]
+    //         pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
+    //             destroy(ptr.b_ptr);
+    //             destroy(ptr.f_ptr);
+    //         }
+
+    //         #[no_mangle]
+    //         pub unsafe extern "C" fn $add(ptr: IPtr<$t>, seq: CTime, value: $t) {
+    //             let ptr = ptr.b_ptr;
+    //             if ptr.is_null() {
+    //                 return;
+    //             }
+
+    //             let ptr = &*ptr;
+    //             ptr.borrow_mut().add(seq.into(), value);
+    //         }
+    //     };
+    // }
+
+    // define_storage_methods!(f64, storage_new_f64, storage_destroy_f64, storage_add_f64);
 
     // use crate::position::ffi::*;
     // use crate::position::*;
@@ -166,8 +218,8 @@ mod hash_ffi {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use MaybeValue::*;
     use crate::granularity::*;
+    use MaybeValue::*;
 
     #[test]
     fn test_from_vec() {

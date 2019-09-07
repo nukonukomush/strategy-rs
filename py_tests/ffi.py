@@ -221,17 +221,12 @@ class Ptr(Structure):
 
 class Indicator:
     _cls_ = None
-    # for T, T2 in {
-    #     c_double: c_double,
-    #     c_int: c_int,
-    #     Option(c_double): Option(c_double),
-    #     CrossState: c_int,
-    # }.items():
-    #     get_func("indicator", "value", T).argtypes = [c_void_p, Time]
-    #     get_func("indicator", "value", T).restype = MaybeValue(T2)
     for S1, S2, V1, V2 in [
         [Time, Time, c_double, c_double],
+        [Time, Time, c_int, c_int],
+        [Time, Time, Option(c_double), Option(c_double)],
         [TransactionId, c_longlong, c_double, c_double],
+        # CrossState: c_int,
     ]:
         get_func("indicator", "value", S1, V1).argtypes = [c_void_p, S2]
         get_func("indicator", "value", S1, V1).restype = MaybeValue(V2)
@@ -269,28 +264,29 @@ class Vec(Indicator):
         get_func(self._cls_, "add", self._S, self._V)(self._ptr, value)
 
 
-# class Storage(Indicator):
-#     _cls_ = "storage"
-#     for T in [
-#         c_double,
-#         # SimplePosition,
-#     ]:
-#         get_func(_cls_, "new", T).argtypes = [Time]
-#         get_func(_cls_, "new", T).restype = Ptr
-#         get_func(_cls_, "destroy", T).argtypes = [Ptr]
-#         get_func(_cls_, "destroy", T).restype = None
-#         get_func(_cls_, "add", T).argtypes = [Ptr, Time, T]
-#         get_func(_cls_, "add", T).restype = None
+class Storage(Indicator):
+    _cls_ = "storage"
+    for S1, S2, V1, V2 in [
+        [Time, Time, c_double, c_double],
+        [TransactionId, c_longlong, c_double, c_double],
+    ]:
+        get_func(_cls_, "new", S1, V1).argtypes = [S2]
+        get_func(_cls_, "new", S1, V1).restype = Ptr
+        get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
+        get_func(_cls_, "destroy", S1, V1).restype = None
+        get_func(_cls_, "add", S1, V1).argtypes = [Ptr, S2, V2]
+        get_func(_cls_, "add", S1, V1).restype = None
 
-#     def __init__(self, T, granularity):
-#         self._T = T
-#         self._ptr = get_func(self._cls_, "new", self._T)(granularity)
+    def __init__(self, S, V, offset):
+        self._S = S
+        self._V = V
+        self._ptr = get_func(self._cls_, "new", self._S, self._V)(offset)
 
-#     def value(self, i):
-#         return get_func("indicator", "value", Option(self._T))(self._ptr.f_ptr, i)
+    def value(self, i):
+        return get_func("indicator", "value", self._S, Option(self._V))(self._ptr.f_ptr, i)
 
-#     def add(self, time, value):
-#         get_func(self._cls_, "add", self._T)(self._ptr, time, value)
+    def add(self, time, value):
+        get_func(self._cls_, "add", self._S, self._V)(self._ptr, time, value)
 
 
 class Cached(Indicator):
@@ -303,13 +299,6 @@ class Cached(Indicator):
         get_func(_cls_, "new", S1, V1).restype = Ptr
         get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
         get_func(_cls_, "destroy", S1, V1).restype = None
-    # for T in [
-    #     c_double,
-    # ]:
-    #     get_func(_cls_, "new", T).argtypes = [c_int, c_void_p]
-    #     get_func(_cls_, "new", T).restype = Ptr
-    #     get_func(_cls_, "destroy", T).argtypes = [Ptr]
-    #     get_func(_cls_, "destroy", T).restype = None
 
     def __init__(self, S, V, capacity, source):
         self._S = S
@@ -317,19 +306,28 @@ class Cached(Indicator):
         self._ptr = get_func(self._cls_, "new", self._S, self._V)(capacity, source._ptr.f_ptr)
 
 
-# class Sma(Indicator):
-#     _cls_ = "sma"
-#     for T in [
-#         c_double,
-#     ]:
-#         get_func(_cls_, "new", T).argtypes = [c_void_p, c_int]
-#         get_func(_cls_, "new", T).restype = Ptr
-#         get_func(_cls_, "destroy", T).argtypes = [Ptr]
-#         get_func(_cls_, "destroy", T).restype = None
+class Sma(Indicator):
+    _cls_ = "sma"
+    for S1, S2, V1, V2 in [
+        [Time, Time, c_double, c_double],
+        [TransactionId, c_longlong, c_double, c_double],
+    ]:
+        get_func(_cls_, "new", S1, V1).argtypes = [c_void_p, c_int]
+        get_func(_cls_, "new", S1, V1).restype = Ptr
+        get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
+        get_func(_cls_, "destroy", S1, V1).restype = None
+    # for T in [
+    #     c_double,
+    # ]:
+    #     get_func(_cls_, "new", T).argtypes = [c_void_p, c_int]
+    #     get_func(_cls_, "new", T).restype = Ptr
+    #     get_func(_cls_, "destroy", T).argtypes = [Ptr]
+    #     get_func(_cls_, "destroy", T).restype = None
 
-#     def __init__(self, T, source, period):
-#         self._T = T
-#         self._ptr = get_func(self._cls_, "new", self._T)(source._ptr.f_ptr, period)
+    def __init__(self, S, V, source, period):
+        self._S = S
+        self._V = V
+        self._ptr = get_func(self._cls_, "new", self._S, self._V)(source._ptr.f_ptr, period)
 
 # class Cmpl(Indicator):
 #     _cls_ = "cmpl"
