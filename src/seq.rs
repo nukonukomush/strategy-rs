@@ -42,3 +42,38 @@ where
         }
     }
 }
+
+#[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
+pub struct TransactionId(pub i64);
+
+impl Add<i64> for TransactionId {
+    type Output = TransactionId;
+    fn add(self, other: i64) -> Self::Output {
+        TransactionId(self.0 + other)
+    }
+}
+
+impl Sub<i64> for TransactionId {
+    type Output = TransactionId;
+    fn sub(self, other: i64) -> Self::Output {
+        TransactionId(self.0 - other)
+    }
+}
+
+impl Sequence for TransactionId {
+    fn distance_from(&self, offset: &Self) -> i64 {
+        self.0 - offset.0
+    }
+}
+
+impl Into<i64> for TransactionId {
+    fn into(self) -> i64 {
+        self.0
+    }
+}
+
+impl From<i64> for TransactionId {
+    fn from(i: i64) -> Self {
+        TransactionId(i)
+    }
+}

@@ -143,9 +143,6 @@ where
     S: Sequence,
     I: Indicator<S, V>,
 {
-    // fn granularity(&self) -> G {
-    //     (*self.borrow()).granularity()
-    // }
 }
 
 impl<S, V, I> FuncIndicator<S, V> for RefCell<I>
@@ -164,9 +161,6 @@ where
     S: Sequence,
     I: Indicator<S, V>,
 {
-    // fn granularity(&self) -> G {
-    //     self.deref().granularity()
-    // }
 }
 
 impl<S, V, I> FuncIndicator<S, V> for Rc<I>
@@ -215,10 +209,12 @@ pub mod tests {
     // }
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
+#[macro_use]
 pub mod ffi {
     use super::*;
     use crate::ffi::*;
+    use crate::granularity::ffi::*;
     use crate::time::ffi::*;
     use std::ops::Deref;
 
@@ -266,25 +262,10 @@ pub mod ffi {
         }
     }
 
-    pub unsafe fn destroy<T>(ptr: *mut T) {
-        if ptr.is_null() {
-            return;
-        }
-        // ここ Box にする必要ある？？
-        let boxed = Box::from_raw(ptr);
-        drop(boxed);
-    }
-
     #[derive(Clone)]
     pub struct FuncIndicatorPtr<S, V>(pub Rc<RefCell<dyn FuncIndicator<S, V>>>);
 
-    type G = VarGranularity;
-
-    impl<S, V> Indicator<S, V> for FuncIndicatorPtr<S, V> {
-        // fn granularity(&self) -> G {
-        //     self.0.borrow().granularity()
-        // }
-    }
+    impl<S, V> Indicator<S, V> for FuncIndicatorPtr<S, V> {}
 
     impl<S, V> FuncIndicator<S, V> for FuncIndicatorPtr<S, V> {
         fn value(&self, seq: S) -> MaybeValue<V> {
@@ -305,41 +286,113 @@ pub mod ffi {
         pub f_ptr: *mut FuncIndicatorPtr<S, V>,
     }
 
+    // pub unsafe fn indicator_value<S, CS, V>(
+    //     ptr: *mut FuncIndicatorPtr<S, V>,
+    //     seq: CS,
+    // ) -> CMaybeValue<V>
+    // where
+    //     CS: Into<S>,
+    //     V: Default,
+    // {
+    //     if ptr.is_null() {
+    //         return CMaybeValue::out_of_range();
+    //     }
+
+    //     let ptr = &*ptr;
+    //     CMaybeValue::from(ptr.borrow().value(seq.into()))
+    // }
+
+    pub unsafe fn value<S, CS, V, CV>(ptr: *mut FuncIndicatorPtr<S, V>, seq: CS) -> CMaybeValue<CV>
+    where
+        CS: Into<S>,
+        V: Default,
+        CV: From<V> + Default,
+    {
+        if ptr.is_null() {
+            return CMaybeValue::out_of_range();
+        }
+
+        let ptr = &*ptr;
+        CMaybeValue::from(ptr.borrow().value(seq.into()).map(CV::from))
+    }
+
     macro_rules! define_value {
-        ($t:ty, $value:ident) => {
+        ($s:ty, $cs:ty, $v:ty, $cv:ty, $name:ident) => {
             #[no_mangle]
-            pub unsafe extern "C" fn $value(
-                ptr: *mut FuncIndicatorPtr<Time<G>, $t>,
-                time: CTime,
-            ) -> CMaybeValue<$t> {
-                if ptr.is_null() {
-                    return CMaybeValue::out_of_range();
-                }
-
-                let ptr = &*ptr;
-                CMaybeValue::from(ptr.borrow().value(time.into()))
+            pub unsafe extern "C" fn $name(
+                ptr: *mut FuncIndicatorPtr<$s, $v>,
+                seq: $cs,
+            ) -> CMaybeValue<$cv> {
+                value(ptr, seq)
             }
         };
     }
-    macro_rules! define_value_convert {
-        ($t1:ty, $t2:ty, $value:ident) => {
-            #[no_mangle]
-            pub unsafe extern "C" fn $value(
-                ptr: *mut FuncIndicatorPtr<Time<G>, $t1>,
-                time: CTime,
-            ) -> CMaybeValue<$t2> {
-                if ptr.is_null() {
-                    return CMaybeValue::out_of_range();
-                }
 
-                let ptr = &*ptr;
-                CMaybeValue::from(ptr.borrow().value(time.into()).map(<$t2>::from))
+    pub unsafe fn destroy<T>(ptr: *mut T) {
+        if ptr.is_null() {
+            return;
+        }
+        // ここ Box にする必要ある？？
+        let boxed = Box::from_raw(ptr);
+        drop(boxed);
+    }
+
+    macro_rules! define_destroy {
+        ($ptr:ty, $name:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $name(ptr: $ptr) {
+                destroy(ptr.b_ptr);
+                destroy(ptr.f_ptr);
             }
         };
     }
-    define_value!(f64, indicator_value_f64);
-    define_value!(i32, indicator_value_i32);
-    define_value_convert!(Option<f64>, COption<f64>, indicator_value_option_f64);
+
+    // macro_rules! define_value {
+    //     ($t:ty, $value:ident) => {
+    //         #[no_mangle]
+    //         pub unsafe extern "C" fn $value(
+    //             ptr: *mut FuncIndicatorPtr<GTime<Var>, $t>,
+    //             time: CTime,
+    //         ) -> CMaybeValue<$t> {
+    //             if ptr.is_null() {
+    //                 return CMaybeValue::out_of_range();
+    //             }
+
+    //             let ptr = &*ptr;
+    //             CMaybeValue::from(ptr.borrow().value(time.into()))
+    //         }
+    //     };
+    // }
+    // macro_rules! define_value_convert {
+    //     ($t1:ty, $t2:ty, $value:ident) => {
+    //         #[no_mangle]
+    //         pub unsafe extern "C" fn $value(
+    //             ptr: *mut FuncIndicatorPtr<GTime<Var>, $t1>,
+    //             time: CTime,
+    //         ) -> CMaybeValue<$t2> {
+    //             if ptr.is_null() {
+    //                 return CMaybeValue::out_of_range();
+    //             }
+
+    //             let ptr = &*ptr;
+    //             CMaybeValue::from(ptr.borrow().value(time.into()).map(<$t2>::from))
+    //         }
+    //     };
+    // }
+    // define_value!(f64, indicator_value_f64);
+    // define_value!(i32, indicator_value_i32);
+    // define_value_convert!(Option<f64>, COption<f64>, indicator_value_option_f64);
+
+    define_value!(GTime<Var>, CTime, f64, f64, indicator_value_time_f64);
+    define_value!(GTime<Var>, CTime, i32, i32, indicator_value_time_i32);
+    define_value!(
+        GTime<Var>,
+        CTime,
+        Option<f64>,
+        COption<f64>,
+        indicator_value_time_option_f64
+    );
+    define_value!(TransactionId, i64, f64, f64, indicator_value_tid_f64);
     // use cross::ffi::*;
     // use cross::*;
     // define_value_convert!(CrossState, CCrossState, indicator_value_cross);

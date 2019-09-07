@@ -1,6 +1,6 @@
 use super::*;
-use crate::seq::*;
 use crate::library::lru_cache::LRUCache as Cache;
+use crate::seq::*;
 use crate::time::*;
 use crate::*;
 use std::cell::RefCell;
@@ -12,7 +12,6 @@ pub struct LRUCache<S, V, I> {
 
 impl<S, V, I> LRUCache<S, V, I>
 where
-    // S: Granularity + Eq + std::hash::Hash,
     S: Sequence,
     V: Clone,
     I: Indicator<S, V>,
@@ -27,19 +26,14 @@ where
 
 impl<S, V, I> Indicator<S, V> for LRUCache<S, V, I>
 where
-    // S: Granularity + Eq + std::hash::Hash + Copy,
     S: Sequence,
     V: Clone,
     I: Indicator<S, V>,
 {
-    // fn granularity(&self) -> S {
-    //     self.source.granularity()
-    // }
 }
 
 impl<S, V, I> FuncIndicator<S, V> for LRUCache<S, V, I>
 where
-    // S: Granularity + Eq + std::hash::Hash + Copy,
     S: Sequence,
     V: Clone,
     I: FuncIndicator<S, V>,
@@ -59,41 +53,49 @@ where
     }
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
 mod ffi {
     use super::*;
+    use crate::granularity::ffi::*;
     use crate::indicator::ffi::*;
     use crate::indicator::*;
-    use crate::seq::ffi::*;
-    use std::mem::drop;
-    use std::os::raw::*;
-    use std::ptr;
-    use std::rc::Rc;
+    use crate::time::ffi::*;
 
-    type IPtr<V> = Ptr<V, LRUCache<VarGranularity, V, FuncIndicatorPtr<V>>>;
+    type IPtr<S, V> = Ptr<S, V, LRUCache<S, V, FuncIndicatorPtr<S, V>>>;
 
-    macro_rules! define_cached_methods {
-        ($t:ty, $new:ident, $destroy:ident) => {
+    pub unsafe fn new<S, CS, V, CV>(
+        capacity: c_int,
+        source: *mut FuncIndicatorPtr<S, V>,
+    ) -> IPtr<S, V>
+    where
+        S: Sequence + 'static,
+        CS: Into<S>,
+        V: Clone + 'static,
+        CV: Into<V>,
+    {
+        let source = (*source).clone();
+        let ptr = Rc::new(RefCell::new(LRUCache::new(capacity as usize, source)));
+        Ptr {
+            b_ptr: Box::into_raw(Box::new(ptr.clone())),
+            f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+        }
+    }
+
+    macro_rules! define_new {
+        ($s:ty, $cs:ty, $v:ty, $cv:ty, $name:ident) => {
             #[no_mangle]
-            pub unsafe extern "C" fn $new(
+            pub unsafe extern "C" fn $name(
                 capacity: c_int,
-                source: *mut FuncIndicatorPtr<$t>,
-            ) -> IPtr<$t> {
-                let source = (*source).clone();
-                let ptr = Rc::new(RefCell::new(LRUCache::new(capacity as usize, source)));
-                Ptr {
-                    b_ptr: Box::into_raw(Box::new(ptr.clone())),
-                    f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
-                }
-            }
-
-            #[no_mangle]
-            pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
-                destroy(ptr.b_ptr);
-                destroy(ptr.f_ptr);
+                source: *mut FuncIndicatorPtr<$s, $v>,
+            ) -> IPtr<$s, $v> {
+                new::<$s, $cs, $v, $cv>(capacity, source)
             }
         };
     }
 
-    define_cached_methods!(f64, cached_new_f64, cached_destroy_f64);
+    define_new!(GTime<Var>, CTime, f64, f64, cached_new_time_f64);
+    define_new!(TransactionId, i64, f64, f64, cached_new_tid_f64);
+
+    define_destroy!(IPtr<GTime<Var>, f64>, cached_destroy_time_f64);
+    define_destroy!(IPtr<TransactionId, f64>, cached_destroy_tid_f64);
 }

@@ -1,5 +1,5 @@
-use crate::time::*;
 use crate::seq::*;
+use crate::time::*;
 use crate::*;
 
 pub struct VecIndicator<S, V> {
@@ -10,7 +10,7 @@ pub struct VecIndicator<S, V> {
 
 impl<S, V> VecIndicator<S, V>
 where
-    // S: Granularity + Copy,
+// S: Granularity + Copy,
 {
     pub fn new(offset: S, source: Vec<V>) -> Self {
         Self {
@@ -51,63 +51,83 @@ where
     }
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
 mod ffi {
     use super::*;
+    use crate::granularity::ffi::*;
     use crate::indicator::ffi::*;
     use crate::indicator::*;
-    use crate::seq::ffi::*;
-    use std::cell::RefCell;
-    use std::mem::drop;
-    use std::os::raw::*;
-    use std::ptr;
-    use std::rc::Rc;
+    use crate::time::ffi::*;
 
-    type IPtr<V> = Ptr<V, VecIndicator<VarGranularity, V>>;
+    type IPtr<S, V> = Ptr<S, V, VecIndicator<S, V>>;
 
-    macro_rules! define_vec_methods {
-        ($t:ty, $new:ident, $destroy:ident, $add:ident) => {
+    pub unsafe fn new<S, CS, V, CV>(offset: CS, array: *const CV, length: c_int) -> IPtr<S, V>
+    where
+        S: Sequence + 'static,
+        CS: Into<S>,
+        V: Clone + 'static,
+        CV: Into<V> + Clone,
+    {
+        let array: &[CV] = std::slice::from_raw_parts(array, length as usize);
+        let array = array.iter().map(|cv| cv.clone().into()).collect::<Vec<_>>();
+        let ptr = VecIndicator::new(offset.into(), array).into_sync_ptr();
+        Ptr {
+            b_ptr: Box::into_raw(Box::new(ptr.clone())),
+            f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+        }
+    }
+
+    macro_rules! define_new {
+        ($s:ty, $cs:ty, $v:ty, $cv:ty, $name:ident) => {
             #[no_mangle]
-            pub unsafe extern "C" fn $new(
-                offset: CTime,
-                array: *const $t,
+            pub unsafe extern "C" fn $name(
+                offset: $cs,
+                array: *const $cv,
                 length: c_int,
-            ) -> IPtr<$t> {
-                let array: &[$t] = std::slice::from_raw_parts(array, length as usize);
-                let ptr = VecIndicator::new(offset.into(), array.to_vec()).into_sync_ptr();
-                Ptr {
-                    b_ptr: Box::into_raw(Box::new(ptr.clone())),
-                    f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
-                }
-            }
-
-            #[no_mangle]
-            pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
-                destroy(ptr.b_ptr);
-                destroy(ptr.f_ptr);
-            }
-
-            #[no_mangle]
-            pub unsafe extern "C" fn $add(ptr: IPtr<$t>, value: $t) {
-                let ptr = ptr.b_ptr;
-                if ptr.is_null() {
-                    return;
-                }
-
-                let ptr = &*ptr;
-                ptr.borrow_mut().add(value);
+            ) -> IPtr<$s, $v> {
+                new(offset, array, length)
             }
         };
     }
 
-    define_vec_methods!(f64, vec_new_f64, vec_destroy_f64, vec_add_f64);
+    pub unsafe fn add<S, V, CV>(ptr: IPtr<S, V>, value: CV)
+    where
+        V: Clone,
+        CV: Into<V> + Clone,
+    {
+        let ptr = ptr.b_ptr;
+        if ptr.is_null() {
+            return;
+        }
+
+        let ptr = &*ptr;
+        ptr.borrow_mut().add(value.into());
+    }
+
+    macro_rules! define_add {
+        ($ptr:ty, $cv:ty, $name:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $name(ptr: $ptr, value: $cv) {
+                add(ptr, value)
+            }
+        };
+    }
+
+    define_new!(GTime<Var>, CTime, f64, f64, vec_new_time_f64);
+    define_new!(TransactionId, i64, f64, f64, vec_new_tid_f64);
+
+    define_destroy!(IPtr<GTime<Var>, f64>, vec_destroy_time_f64);
+    define_destroy!(IPtr<TransactionId, f64>, vec_destroy_tid_f64);
+
+    define_add!(IPtr<GTime<Var>, f64>, f64, vec_add_time_f64);
+    define_add!(IPtr<TransactionId, f64>, f64, vec_add_tid_f64);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use MaybeValue::*;
     use crate::granularity::*;
+    use MaybeValue::*;
 
     #[test]
     fn test_vec() {
