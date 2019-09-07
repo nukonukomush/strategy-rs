@@ -1,46 +1,66 @@
 use super::*;
-use crate::time::*;
+use crate::granularity::*;
 
-pub struct ConvertWithNone<G1, G2, I> {
+pub struct ConvertWithNone<S, I> {
     source: I,
-    granularity: G2,
-    phantom: std::marker::PhantomData<G1>,
+    phantom: std::marker::PhantomData<S>,
 }
 
-impl<G1, G2, I> ConvertWithNone<G1, G2, I> {
-    pub fn new(source: I, granularity: G2) -> Self {
+impl<S, I> ConvertWithNone<S, I> {
+    pub fn new(source: I) -> Self {
         Self {
             source: source,
-            granularity: granularity,
             phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<G1, G2, V, I> Indicator<G2, Option<V>> for ConvertWithNone<G1, G2, I>
+impl<S1, S2, V, I> Indicator<S2, Option<V>> for ConvertWithNone<S1, I>
 where
-    G1: Granularity + Copy,
-    G2: Granularity + Copy,
-    I: Indicator<G1, V>,
+    S1: Sequence,
+    S2: Sequence,
+    I: Indicator<S1, V>,
 {
-    fn granularity(&self) -> G2 {
-        self.granularity
-    }
 }
 
-impl<G1, G2, V, I> FuncIndicator<G2, Option<V>> for ConvertWithNone<G1, G2, I>
+impl<G1, G2, V, I> FuncIndicator<Time<G2>, Option<V>> for ConvertWithNone<Time<G1>, I>
 where
-    G1: Granularity + Copy,
-    G2: Granularity + Copy,
-    I: FuncIndicator<G1, V>,
+    G1: StaticGranularity,
+    G2: StaticGranularity,
+    I: FuncIndicator<Time<G1>, V>,
 {
     fn value(&self, time: Time<G2>) -> MaybeValue<Option<V>> {
-        match time.try_into(self.source.granularity()) {
+        match time.try_into() {
             Ok(time) => self.source.value(time).map(|v| Some(v)),
             Err(_) => MaybeValue::Value(None),
         }
     }
 }
+
+// impl<G1, G2, V, I> Indicator<G2, Option<V>> for ConvertWithNone<G1, G2, I>
+// where
+//     G1: Granularity + Copy,
+//     G2: Granularity + Copy,
+//     I: Indicator<G1, V>,
+// {
+//     fn granularity(&self) -> G2 {
+//         self.granularity
+//     }
+// }
+
+// impl<G1, G2, V, I> FuncIndicator<G2, Option<V>> for ConvertWithNone<G1, G2, I>
+// where
+//     G1: Granularity + Copy,
+//     G2: Granularity + Copy,
+//     I: FuncIndicator<G1, V>,
+// {
+//     fn value(&self, time: Time<G2>) -> MaybeValue<Option<V>> {
+//         match time.try_into(self.source.granularity()) {
+//             Ok(time) => self.source.value(time).map(|v| Some(v)),
+//             Err(_) => MaybeValue::Value(None),
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -50,11 +70,11 @@ mod tests {
 
     #[test]
     fn test_conv_s5_to_s10() {
-        let offset_s5 = Time::<S5>::new(0, S5);
-        let offset_s10 = Time::<S10>::new(0, S10);
+        let offset_s5 = Time::<S5>::new(0);
+        let offset_s10 = Time::<S10>::new(0);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0_f64];
         let expect = vec![Value(Some(1.0)), Value(Some(3.0)), Value(Some(5.0))];
-        let conv = ConvertWithNone::new(VecIndicator::new(offset_s5, source.clone()), S10);
+        let conv = ConvertWithNone::new(VecIndicator::new(offset_s5, source.clone()));
 
         let result = (0..3)
             .map(|i| conv.value(offset_s10 + i))
@@ -64,8 +84,8 @@ mod tests {
 
     #[test]
     fn test_conv_s10_to_s5() {
-        let offset_s5 = Time::<S5>::new(0, S5);
-        let offset_s10 = Time::<S10>::new(0, S10);
+        let offset_s5 = Time::<S5>::new(0);
+        let offset_s10 = Time::<S10>::new(0);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0_f64];
         let expect = vec![
             Value(Some(1.0)),
@@ -78,7 +98,7 @@ mod tests {
             Value(None),
             Value(Some(5.0)),
         ];
-        let conv = ConvertWithNone::new(VecIndicator::new(offset_s10, source.clone()), S5);
+        let conv = ConvertWithNone::new(VecIndicator::new(offset_s10, source.clone()));
 
         let result = (0..9)
             .map(|i| conv.value(offset_s5 + i))

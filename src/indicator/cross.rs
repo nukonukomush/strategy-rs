@@ -1,12 +1,13 @@
 use super::*;
+use crate::seq::*;
 use crate::indicator::ordering::*;
 
-pub struct Cross<G, I> {
+pub struct Cross<S, I> {
     source: I,
-    phantom: std::marker::PhantomData<G>,
+    phantom: std::marker::PhantomData<S>,
 }
 
-impl<G, I> Cross<G, I> {
+impl<S, I> Cross<S, I> {
     pub fn from_ord(source: I) -> Self {
         Self {
             source: source,
@@ -15,12 +16,12 @@ impl<G, I> Cross<G, I> {
     }
 }
 
-impl<G, V, I1, I2> Cross<G, Ordering<G, V, I1, I2>>
+impl<S, V, I1, I2> Cross<S, Ordering<S, V, I1, I2>>
 where
-    G: Granularity,
+    S: Sequence,
     V: PartialOrd,
-    I1: Indicator<G, V>,
-    I2: Indicator<G, V>,
+    I1: Indicator<S, V>,
+    I2: Indicator<S, V>,
 {
     pub fn new(source_1: I1, source_2: I2) -> Self {
         let source = Ordering::new(source_1, source_2);
@@ -28,29 +29,29 @@ where
     }
 }
 
-impl<G, I> Indicator<G, CrossState> for Cross<G, I>
+impl<S, I> Indicator<S, CrossState> for Cross<S, I>
 where
-    G: Granularity + Copy,
-    I: Indicator<G, std::cmp::Ordering>,
+    S: Sequence,
+    I: Indicator<S, std::cmp::Ordering>,
 {
-    fn granularity(&self) -> G {
-        self.source.granularity()
-    }
+    // fn granularity(&self) -> S {
+    //     self.source.granularity()
+    // }
 }
 
-impl<G, I> FuncIndicator<G, CrossState> for Cross<G, I>
+impl<S, I> FuncIndicator<S, CrossState> for Cross<S, I>
 where
-    G: Granularity + Copy,
-    I: FuncIndicator<G, std::cmp::Ordering>,
+    S: Sequence,
+    I: FuncIndicator<S, std::cmp::Ordering>,
 {
-    fn value(&self, time: Time<G>) -> MaybeValue<CrossState> {
+    fn value(&self, seq: S) -> MaybeValue<CrossState> {
         use std::cmp::Ordering::*;
         use CrossState::*;
 
         // TODO: refactor using cmpl
-        let current_ord = try_value!(self.source.value(time));
+        let current_ord = try_value!(self.source.value(seq));
         if current_ord != Equal {
-            let mut i = time - 1;
+            let mut i = seq - 1;
             while let MaybeValue::Value(past_ord) = self.source.value(i) {
                 match (past_ord, current_ord) {
                     (Greater, Less) => return MaybeValue::Value(GtToLt),
@@ -73,12 +74,12 @@ pub enum CrossState {
     GtToLt,
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 pub mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
     use crate::indicator::*;
-    use crate::time::ffi::*;
+    use crate::seq::ffi::*;
     use std::cell::RefCell;
     use std::mem::drop;
     use std::os::raw::*;
@@ -148,6 +149,7 @@ mod tests {
     use super::*;
     use crate::vec::*;
     use MaybeValue::*;
+    use crate::granularity::*;
 
     #[test]
     fn test_cross() {
@@ -155,7 +157,7 @@ mod tests {
         use CrossState::LtToGt as ltg;
         use CrossState::NotCrossed as not;
 
-        let offset = Time::<S5>::new(0, S5);
+        let offset = Time::<S5>::new(0);
         let source_1 = vec![0.0, 0.0, 2.0, 2.0, 0.0, 1.0, 1.0, 2.0, 1.0, 0.0_f64];
         let source_2 = vec![1.0; 10];
         let expected = vec![not, not, ltg, not, gtl, not, not, ltg, not, gtl]

@@ -1,14 +1,15 @@
 use super::*;
+use crate::seq::*;
 use crate::time::*;
 use crate::*;
 
-pub struct Sma<G, I> {
+pub struct Sma<S, I> {
     source: I,
     period: isize,
-    phantom: std::marker::PhantomData<G>,
+    phantom: std::marker::PhantomData<S>,
 }
 
-impl<G, I> Sma<G, I> {
+impl<S, I> Sma<S, I> {
     pub fn new(source: I, period: usize) -> Self {
         Self {
             source: source,
@@ -18,29 +19,29 @@ impl<G, I> Sma<G, I> {
     }
 }
 
-impl<G, I> Indicator<G, f64> for Sma<G, I>
+impl<S, I> Indicator<S, f64> for Sma<S, I>
 where
-    G: Granularity + Ord + Copy,
-    I: Indicator<G, f64>,
+    S: Sequence,
+    I: Indicator<S, f64>,
 {
-    fn granularity(&self) -> G {
-        self.source.granularity()
-    }
+    // fn granularity(&self) -> S {
+    //     self.source.granularity()
+    // }
 }
 
-impl<G, I> FuncIndicator<G, f64> for Sma<G, I>
+impl<S, I> FuncIndicator<S, f64> for Sma<S, I>
 where
-    G: Granularity + Ord + Copy,
-    I: FuncIndicator<G, f64>,
+    S: Sequence,
+    I: FuncIndicator<S, f64>,
 {
-    fn value(&self, time: Time<G>) -> MaybeValue<f64> {
+    fn value(&self, seq: S) -> MaybeValue<f64> {
         let mut sum = 0.0;
-        let begin = time + 1 - (self.period as i64);
-        // for i in (begin..=time).rev() {
+        let begin = seq + 1 - (self.period as i64);
+        // for i in (begin..=seq).rev() {
         //     let v = self.source.value(i)?;
         //     sum += v;
         // }
-        let mut tmp = time;
+        let mut tmp = seq;
         while tmp >= begin {
             let v = try_value!(self.source.value(tmp));
             sum += v;
@@ -50,12 +51,12 @@ where
     }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
     use crate::indicator::*;
-    use crate::time::ffi::*;
+    use crate::seq::ffi::*;
     use std::cell::RefCell;
     use std::mem::drop;
     use std::os::raw::*;
@@ -93,10 +94,11 @@ mod tests {
     use MaybeValue::*;
     use crate::indicator::cached::*;
     use crate::vec::*;
+    use crate::granularity::*;
 
     #[test]
     fn test_sma() {
-        let offset = Time::new(0, S5);
+        let offset = Time::<S5>::new(0);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let expect = vec![OutOfRange, OutOfRange, Value(2.0), Value(3.0), Value(4.0)];
         // let sma_pre = Sma::new(source, 3);

@@ -1,14 +1,15 @@
 use super::*;
+use crate::seq::*;
 
-pub struct Slope<G, V, I> {
+pub struct Slope<S, V, I> {
     source: I,
-    p1: std::marker::PhantomData<G>,
+    p1: std::marker::PhantomData<S>,
     p2: std::marker::PhantomData<V>,
 }
 
-impl<G, V, I> Slope<G, V, I>
+impl<S, V, I> Slope<S, V, I>
 where
-    I: Indicator<G, V>,
+    I: Indicator<S, V>,
     V: std::ops::Sub,
 {
     pub fn new(source: I) -> Self {
@@ -20,36 +21,36 @@ where
     }
 }
 
-impl<G, V, I> Indicator<G, V::Output> for Slope<G, V, I>
+impl<S, V, I> Indicator<S, V::Output> for Slope<S, V, I>
 where
-    G: Granularity + Copy,
-    I: Indicator<G, V>,
+    S: Sequence,
+    I: Indicator<S, V>,
     V: std::ops::Sub,
 {
-    fn granularity(&self) -> G {
-        self.source.granularity()
-    }
+    // fn granularity(&self) -> S {
+    //     self.source.granularity()
+    // }
 }
 
-impl<G, V, I> FuncIndicator<G, V::Output> for Slope<G, V, I>
+impl<S, V, I> FuncIndicator<S, V::Output> for Slope<S, V, I>
 where
-    G: Granularity + Copy,
-    I: FuncIndicator<G, V>,
+    S: Sequence,
+    I: FuncIndicator<S, V>,
     V: std::ops::Sub,
 {
-    fn value(&self, time: Time<G>) -> MaybeValue<V::Output> {
-        let cur = try_value!(self.source.value(time));
-        let prev = try_value!(self.source.value(time - 1));
+    fn value(&self, seq: S) -> MaybeValue<V::Output> {
+        let cur = try_value!(self.source.value(seq));
+        let prev = try_value!(self.source.value(seq - 1));
         MaybeValue::Value(cur - prev)
     }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
     use crate::indicator::*;
-    use crate::time::ffi::*;
+    use crate::seq::ffi::*;
     use std::cell::RefCell;
     use std::mem::drop;
     use std::os::raw::*;
@@ -86,10 +87,11 @@ mod tests {
     use super::*;
     use crate::vec::*;
     use MaybeValue::*;
+    use crate::granularity::*;
 
     #[test]
     fn test_slope() {
-        let offset = Time::new(0, S5);
+        let offset = Time::<S5>::new(0);
         let source = vec![1.0, 2.0, 4.0, 8.0, 6.0];
         let expect = vec![OutOfRange, Value(1.0), Value(2.0), Value(4.0), Value(-2.0)];
         let source = VecIndicator::new(offset, source);

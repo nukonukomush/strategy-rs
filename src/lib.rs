@@ -60,8 +60,11 @@ pub mod ffi {
     }
 }
 
+pub mod transaction;
 pub mod indicator;
 pub mod position;
+pub mod seq;
+pub mod granularity;
 pub mod time;
 
 use indicator::*;

@@ -1,18 +1,20 @@
 use crate::time::*;
+use crate::seq::*;
 use crate::*;
 use std::collections::HashMap;
 
-pub struct Storage<G, V> {
-    begin: Time<G>,
-    end: Time<G>,
-    map: HashMap<Time<G>, V>,
+pub struct Storage<S, V> {
+    begin: S,
+    end: S,
+    map: HashMap<S, V>,
 }
 
-impl<G, V> Storage<G, V>
+impl<S, V> Storage<S, V>
 where
-    G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    // S: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    S: Sequence,
 {
-    pub fn new(offset: Time<G>) -> Self {
+    pub fn new(offset: S) -> Self {
         // Self::from_map(HashMap::new(), granularity)
         Self {
             begin: offset,
@@ -21,20 +23,19 @@ where
         }
     }
 
-    // pub fn from_map(map: HashMap<Time<G>, V>) -> Self {
+    // pub fn from_map(map: HashMap<S, V>) -> Self {
     //     Self {
     //         map: map,
     //     }
     // }
 
-    pub fn add(&mut self, time: Time<G>, value: V) {
-        debug_assert!(time >= self.end);
-        self.map.insert(time, value);
-        self.end = time + 1;
+    pub fn add(&mut self, seq: S, value: V) {
+        debug_assert!(seq >= self.end);
+        self.map.insert(seq, value);
+        self.end = seq + 1;
     }
 
-    pub fn from_vec(offset: Time<G>, vec: Vec<V>) -> Self
-    {
+    pub fn from_vec(offset: S, vec: Vec<V>) -> Self {
         let len = vec.len();
         if len == 0 {
             Self::new(offset)
@@ -52,24 +53,26 @@ where
     }
 }
 
-impl<G, V> Indicator<G, Option<V>> for Storage<G, V>
+impl<S, V> Indicator<S, Option<V>> for Storage<S, V>
 where
-    V: Clone,
-    G: Granularity + Eq + std::hash::Hash + Copy,
+    // V: Clone,
+    // S: Granularity + Eq + std::hash::Hash + Copy,
+    S: Sequence,
 {
-    fn granularity(&self) -> G {
-        self.begin.granularity()
-    }
+    // fn granularity(&self) -> S {
+    //     self.begin.granularity()
+    // }
 }
 
-impl<G, V> FuncIndicator<G, Option<V>> for Storage<G, V>
+impl<S, V> FuncIndicator<S, Option<V>> for Storage<S, V>
 where
+    S: Sequence,
     V: Clone,
-    G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+    // S: Granularity + Eq + std::hash::Hash + Copy + Ord,
 {
-    fn value(&self, time: Time<G>) -> MaybeValue<Option<V>> {
-        if self.begin <= time && time < self.end {
-            match self.map.get(&time) {
+    fn value(&self, seq: S) -> MaybeValue<Option<V>> {
+        if self.begin <= seq && seq < self.end {
+            match self.map.get(&seq) {
                 Some(v) => MaybeValue::Value(Some(v.clone())),
                 None => MaybeValue::Value(None),
             }
@@ -79,12 +82,12 @@ where
     }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 mod hash_ffi {
     use super::*;
     use crate::indicator::ffi::*;
     use crate::indicator::*;
-    use crate::time::ffi::*;
+    use crate::seq::ffi::*;
     use std::cell::RefCell;
     use std::mem::drop;
     use std::os::raw::*;
@@ -111,14 +114,14 @@ mod hash_ffi {
             }
 
             #[no_mangle]
-            pub unsafe extern "C" fn $add(ptr: IPtr<$t>, time: CTime, value: $t) {
+            pub unsafe extern "C" fn $add(ptr: IPtr<$t>, seq: CTime, value: $t) {
                 let ptr = ptr.b_ptr;
                 if ptr.is_null() {
                     return;
                 }
 
                 let ptr = &*ptr;
-                ptr.borrow_mut().add(time.into(), value);
+                ptr.borrow_mut().add(seq.into(), value);
             }
         };
     }
@@ -147,7 +150,7 @@ mod hash_ffi {
     // #[no_mangle]
     // pub unsafe extern "C" fn hash_set_simpleposition(
     //     ptr: Ptr<SimplePosition>,
-    //     time: CTime,
+    //     seq: CTime,
     //     value: CSimplePosition,
     // ) {
     //     let ptr = ptr.b_ptr;
@@ -156,7 +159,7 @@ mod hash_ffi {
     //     }
 
     //     let ptr = &*ptr;
-    //     ptr.borrow_mut().insert(time.into(), value.into());
+    //     ptr.borrow_mut().insert(seq.into(), value.into());
     // }
 }
 
@@ -164,10 +167,11 @@ mod hash_ffi {
 mod tests {
     use super::*;
     use MaybeValue::*;
+    use crate::granularity::*;
 
     #[test]
     fn test_from_vec() {
-        let offset = Time::new(0, S5);
+        let offset = Time::<S5>::new(0);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let expect = vec![
             Value(Some(1.0)),
@@ -178,13 +182,15 @@ mod tests {
         ];
 
         let storage = Storage::from_vec(offset, source.clone());
-        let result = (0..5).map(|i| storage.value(offset + i)).collect::<Vec<_>>();
+        let result = (0..5)
+            .map(|i| storage.value(offset + i))
+            .collect::<Vec<_>>();
         assert_eq!(result, expect);
     }
 
     #[test]
     fn test_add_ok() {
-        let offset = Time::new(0, S5);
+        let offset = Time::<S5>::new(0);
         let expect = vec![
             Value(Some(1.0)),
             Value(Some(2.0)),
@@ -198,14 +204,16 @@ mod tests {
         storage.add(offset + 1, 2.0);
         storage.add(offset + 3, 3.0);
 
-        let result = (0..5).map(|i| storage.value(offset + i)).collect::<Vec<_>>();
+        let result = (0..5)
+            .map(|i| storage.value(offset + i))
+            .collect::<Vec<_>>();
         assert_eq!(result, expect);
     }
 
     #[test]
     #[should_panic]
     fn test_add_ng_1() {
-        let offset = Time::new(0, S5);
+        let offset = Time::<S5>::new(0);
         let mut storage = Storage::new(offset);
         storage.add(offset + 0, 1.0);
         storage.add(offset + 3, 3.0);
@@ -215,7 +223,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_add_ng_2() {
-        let offset = Time::new(0, S5);
+        let offset = Time::<S5>::new(0);
         let mut storage = Storage::new(offset);
         storage.add(offset + 0, 1.0);
         storage.add(offset + 3, 3.0);

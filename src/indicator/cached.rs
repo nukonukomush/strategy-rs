@@ -1,19 +1,21 @@
 use super::*;
+use crate::seq::*;
 use crate::library::lru_cache::LRUCache as Cache;
 use crate::time::*;
 use crate::*;
 use std::cell::RefCell;
 
-pub struct LRUCache<G, V, I> {
+pub struct LRUCache<S, V, I> {
     source: I,
-    cache: RefCell<Cache<Time<G>, V>>,
+    cache: RefCell<Cache<S, V>>,
 }
 
-impl<G, V, I> LRUCache<G, V, I>
+impl<S, V, I> LRUCache<S, V, I>
 where
-    G: Granularity + Eq + std::hash::Hash,
+    // S: Granularity + Eq + std::hash::Hash,
+    S: Sequence,
     V: Clone,
-    I: Indicator<G, V>,
+    I: Indicator<S, V>,
 {
     pub fn new(capacity: usize, source: I) -> Self {
         Self {
@@ -23,44 +25,46 @@ where
     }
 }
 
-impl<G, V, I> Indicator<G, V> for LRUCache<G, V, I>
+impl<S, V, I> Indicator<S, V> for LRUCache<S, V, I>
 where
-    G: Granularity + Eq + std::hash::Hash + Copy,
+    // S: Granularity + Eq + std::hash::Hash + Copy,
+    S: Sequence,
     V: Clone,
-    I: Indicator<G, V>,
+    I: Indicator<S, V>,
 {
-    fn granularity(&self) -> G {
-        self.source.granularity()
-    }
+    // fn granularity(&self) -> S {
+    //     self.source.granularity()
+    // }
 }
 
-impl<G, V, I> FuncIndicator<G, V> for LRUCache<G, V, I>
+impl<S, V, I> FuncIndicator<S, V> for LRUCache<S, V, I>
 where
-    G: Granularity + Eq + std::hash::Hash + Copy,
+    // S: Granularity + Eq + std::hash::Hash + Copy,
+    S: Sequence,
     V: Clone,
-    I: FuncIndicator<G, V>,
+    I: FuncIndicator<S, V>,
 {
-    fn value(&self, time: Time<G>) -> MaybeValue<V> {
-        let maybe = self.cache.borrow_mut().get(&time).map(|v| v.clone());
+    fn value(&self, seq: S) -> MaybeValue<V> {
+        let maybe = self.cache.borrow_mut().get(&seq).map(|v| v.clone());
         match maybe {
             Some(v) => MaybeValue::Value(v),
-            None => match self.source.value(time) {
+            None => match self.source.value(seq) {
                 MaybeValue::Value(v) => {
-                    self.cache.borrow_mut().insert(time, v.clone());
+                    self.cache.borrow_mut().insert(seq, v.clone());
                     MaybeValue::Value(v)
                 }
-                MaybeValue::OutOfRange => MaybeValue::OutOfRange
+                MaybeValue::OutOfRange => MaybeValue::OutOfRange,
             },
         }
     }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
     use crate::indicator::*;
-    use crate::time::ffi::*;
+    use crate::seq::ffi::*;
     use std::mem::drop;
     use std::os::raw::*;
     use std::ptr;

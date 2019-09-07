@@ -1,19 +1,20 @@
 use super::*;
+use crate::seq::*;
 use crate::*;
 
-pub struct Ordering<G, V, I1, I2> {
+pub struct Ordering<S, V, I1, I2> {
     source_1: I1,
     source_2: I2,
-    p1: std::marker::PhantomData<G>,
+    p1: std::marker::PhantomData<S>,
     p2: std::marker::PhantomData<V>,
 }
 
-impl<G, V, I1, I2> Ordering<G, V, I1, I2>
+impl<S, V, I1, I2> Ordering<S, V, I1, I2>
 where
-    G: Granularity,
+    S: Sequence,
     V: PartialOrd,
-    I1: Indicator<G, V>,
-    I2: Indicator<G, V>,
+    I1: Indicator<S, V>,
+    I2: Indicator<S, V>,
 {
     pub fn new(source_1: I1, source_2: I2) -> Self {
         Self {
@@ -25,28 +26,28 @@ where
     }
 }
 
-impl<G, V, I1, I2> Indicator<G, std::cmp::Ordering> for Ordering<G, V, I1, I2>
+impl<S, V, I1, I2> Indicator<S, std::cmp::Ordering> for Ordering<S, V, I1, I2>
 where
-    G: Granularity + Copy,
+    S: Sequence,
     V: PartialOrd,
-    I1: Indicator<G, V>,
-    I2: Indicator<G, V>,
+    I1: Indicator<S, V>,
+    I2: Indicator<S, V>,
 {
-    fn granularity(&self) -> G {
-        self.source_1.granularity()
-    }
+    // fn granularity(&self) -> S {
+    //     self.source_1.granularity()
+    // }
 }
 
-impl<G, V, I1, I2> FuncIndicator<G, std::cmp::Ordering> for Ordering<G, V, I1, I2>
+impl<S, V, I1, I2> FuncIndicator<S, std::cmp::Ordering> for Ordering<S, V, I1, I2>
 where
-    G: Granularity + Copy,
+    S: Sequence,
     V: PartialOrd,
-    I1: FuncIndicator<G, V>,
-    I2: FuncIndicator<G, V>,
+    I1: FuncIndicator<S, V>,
+    I2: FuncIndicator<S, V>,
 {
-    fn value(&self, time: Time<G>) -> MaybeValue<std::cmp::Ordering> {
-        let v1 = try_value!(self.source_1.value(time));
-        let v2 = try_value!(self.source_2.value(time));
+    fn value(&self, seq: S) -> MaybeValue<std::cmp::Ordering> {
+        let v1 = try_value!(self.source_1.value(seq));
+        let v2 = try_value!(self.source_2.value(seq));
         let ord = v1.partial_cmp(&v2).unwrap();
         MaybeValue::Value(ord)
     }

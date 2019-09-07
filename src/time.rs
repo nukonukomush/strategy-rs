@@ -1,200 +1,217 @@
-// pub trait Granularity: Eq + Ord + Clone + Copy + std::hash::Hash + std::fmt::Debug {
-pub trait Granularity {
-    fn unit_duration(&self) -> i64;
-    fn is_valid(&self, t: i64) -> bool;
-}
-
-macro_rules! define_granularity {
-    ($t:ident, $d:expr, $v:expr) => {
-        #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
-        pub struct $t;
-        impl Granularity for $t {
-            fn unit_duration(&self) -> i64 {
-                $d
-            }
-            fn is_valid(&self, t: i64) -> bool {
-                $v(t)
-            }
-        }
-    };
-}
+use crate::granularity::*;
+use crate::seq::*;
 use chrono::prelude::*;
-define_granularity!(S5, 5, |t| {
-    let dt = Utc.timestamp(t, 0);
-    dt.second() % 5 == 0
-});
-define_granularity!(S10, 10, |t| {
-    let dt = Utc.timestamp(t, 0);
-    dt.second() % 10 == 0
-});
-define_granularity!(D1, 60 * 60 * 24, |t| {
-    let dt = Utc.timestamp(t, 0);
-    dt.hour() == 0 && dt.minute() == 0 && dt.second() == 0
-});
+use std::ops::Add;
+use std::ops::Sub;
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
-pub struct VarGranularity(i64);
-impl VarGranularity {
-    pub fn new(d: i64) -> Self {
-        debug_assert_ne!(d, 0);
-        VarGranularity(d)
-    }
-}
-impl Granularity for VarGranularity {
-    fn unit_duration(&self) -> i64 {
-        self.0
-    }
-    fn is_valid(&self, t: i64) -> bool {
-        t % self.0 == 0
-    }
-}
+pub struct Time<G>(i64, std::marker::PhantomData<G>);
 
-// #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
-// pub struct GranularityPtr(Box<dyn Granularity>);
-// impl Granularity for DynamicGranularity {
-//     fn unit_duration(&self) -> i64 {
-//         self.0.unit_duration()
-//     }
-//     fn is_valid(&self, t: i64) -> bool {
-//         self.0.is_valid(t)
-//     }
-// }
-
-#[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
-pub struct Time<G>(i64, G);
-
-impl<G: Granularity + Copy> Time<G> {
-    pub fn new(t: i64, g: G) -> Self {
-        debug_assert!(g.is_valid(t));
-        Time(t, g)
+impl<G> Time<G>
+where
+    G: StaticGranularity,
+{
+    pub fn new(t: i64) -> Self {
+        debug_assert!(G::is_valid(t));
+        Time(t, std::marker::PhantomData)
     }
 
     pub fn timestamp(&self) -> i64 {
         self.0
     }
 
-    pub fn granularity(&self) -> G {
-        self.1
-    }
-
-    pub fn try_into<G2: Granularity + Copy>(self, g: G2) -> Result<Time<G2>, ()> {
-        if g.is_valid(self.0) {
-            Ok(Time::new(self.0, g))
+    pub fn try_into<G2: StaticGranularity>(self) -> Result<Time<G2>, ()> {
+        if G2::is_valid(self.0) {
+            Ok(Time::new(self.0))
         } else {
             Err(())
         }
     }
 
-    pub fn range_to_end(&self, end: Time<G>) -> TimeRangeTo<G> {
-        TimeRangeTo {
-            current: *self,
-            end: end,
-        }
-    }
+    // pub fn range_to_end(&self, end: Time<G>) -> TimeRangeTo<G> {
+    //     TimeRangeTo {
+    //         current: *self,
+    //         end: end,
+    //     }
+    // }
 }
 
-pub struct TimeRangeTo<G> {
-    current: Time<G>,
-    end: Time<G>,
-}
-
-impl<G> std::iter::Iterator for TimeRangeTo<G>
+impl<G> Sequence for Time<G>
 where
-    G: Granularity + Copy + Ord,
+    G: StaticGranularity,
 {
-    type Item = Time<G>;
-    fn next(&mut self) -> Option<Self::Item> {
-        let next = self.current + 1;
-        if next >= self.end {
-            None
-        } else {
-            self.current = next;
-            Some(next)
-        }
+    fn distance_from(&self, offset: &Time<G>) -> i64 {
+        (self.0 - offset.0) / G::unit_duration()
     }
 }
 
-use std::ops::Add;
-impl<G: Granularity + Copy> Add<i64> for Time<G> {
+// pub struct TimeRangeTo<G> {
+//     current: Time<G>,
+//     end: Time<G>,
+// }
+
+impl<G> Into<DateTime<Utc>> for Time<G> {
+    fn into(self) -> DateTime<Utc> {
+        Utc.timestamp(self.0, 0)
+    }
+}
+
+// impl<G> std::iter::Iterator for TimeRangeTo<G>
+// where
+//     G: Granularity + Copy + Ord,
+// {
+//     type Item = Time<G>;
+//     fn next(&mut self) -> Option<Self::Item> {
+//         let next = self.current + 1;
+//         if next >= self.end {
+//             None
+//         } else {
+//             self.current = next;
+//             Some(next)
+//         }
+//     }
+// }
+
+impl<G> Add<i64> for Time<G>
+where
+    G: StaticGranularity,
+{
     type Output = Time<G>;
     fn add(self, other: i64) -> Self::Output {
-        Time::new(self.0 + self.1.unit_duration() * other, self.1)
+        Time::new(self.0 + G::unit_duration() * other)
     }
 }
 
-use std::ops::Sub;
-impl<G: Granularity + Copy> Sub<i64> for Time<G> {
+impl<G> Sub<i64> for Time<G>
+where
+    G: StaticGranularity,
+{
     type Output = Time<G>;
     fn sub(self, other: i64) -> Self::Output {
-        Time::new(self.0 - self.1.unit_duration() * other, self.1)
+        Time::new(self.0 - G::unit_duration() * other)
     }
 }
 
 pub mod ffi {
     use super::*;
+    use crate::granularity::ffi::Var;
+
+    #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
+    pub struct GTime<G>(i64, G);
+    impl GTime<Var> {
+        pub fn new(t: i64, g: Var) -> Self {
+            debug_assert!(g.is_valid(t));
+            GTime(t, g)
+        }
+
+        pub fn timestamp(&self) -> i64 {
+            self.0
+        }
+
+        pub fn granularity(&self) -> Var {
+            self.1
+        }
+
+        pub fn try_into(self, g2: Var) -> Result<GTime<Var>, ()> {
+            if g2.is_valid(self.0) {
+                Ok(GTime::new(self.0, g2))
+            } else {
+                Err(())
+            }
+        }
+
+        // pub fn range_to_end(&self, end: GTime<Var>) -> TimeRangeTo<Var> {
+        //     TimeRangeTo {
+        //         current: *self,
+        //         end: end,
+        //     }
+        // }
+    }
+
+    impl Sequence for GTime<Var> {
+        fn distance_from(&self, offset: &GTime<Var>) -> i64 {
+            (self.0 - offset.0) / self.1.unit_duration()
+        }
+    }
+
+    impl Add<i64> for GTime<Var> {
+        type Output = GTime<Var>;
+        fn add(self, other: i64) -> Self::Output {
+            GTime::new(self.0 + self.1.unit_duration() * other, self.1)
+        }
+    }
+
+    impl Sub<i64> for GTime<Var> {
+        type Output = GTime<Var>;
+        fn sub(self, other: i64) -> Self::Output {
+            GTime::new(self.0 - self.1.unit_duration() * other, self.1)
+        }
+    }
 
     #[repr(C)]
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub struct CTime {
         time: i64,
-        granularity: VarGranularity,
+        granularity: Var,
     }
 
     use std::convert::Into;
-    impl Into<Time<VarGranularity>> for CTime {
-        fn into(self) -> Time<VarGranularity> {
-            Time::new(self.time, self.granularity)
+    impl Into<GTime<Var>> for CTime {
+        fn into(self) -> GTime<Var> {
+            GTime::new(self.time, self.granularity)
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::ffi::*;
     use super::*;
+    use crate::granularity::ffi::*;
 
     #[test]
     fn test_new_s5_ok() {
         let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        Time::new(dt.timestamp(), S5);
+        Time::<S5>::new(dt.timestamp());
     }
 
     #[test]
     #[should_panic]
     fn test_new_s5_ng() {
         let dt = "2019-01-01T00:00:01Z".parse::<DateTime<Utc>>().unwrap();
-        Time::new(dt.timestamp(), S5);
+        Time::<S5>::new(dt.timestamp());
     }
 
     #[test]
     fn test_new_d1_ok() {
         let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        Time::new(dt.timestamp(), D1);
+        Time::<D1>::new(dt.timestamp());
     }
 
     #[test]
     #[should_panic]
     fn test_new_d1_ng() {
         let dt = "2019-01-01T01:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        Time::new(dt.timestamp(), D1);
+        Time::<D1>::new(dt.timestamp());
     }
 
     #[test]
     fn test_new_var_ok() {
         let dt = "2019-01-01T07:00:05Z".parse::<DateTime<Utc>>().unwrap();
-        Time::new(dt.timestamp(), VarGranularity::new(7));
+        GTime::new(dt.timestamp(), Var::new(7));
     }
 
     #[test]
     #[should_panic]
     fn test_new_var_ng() {
         let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        Time::new(dt.timestamp(), VarGranularity::new(7));
+        GTime::new(dt.timestamp(), Var::new(7));
     }
 
     #[test]
     fn test_add_1() {
         let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        let t = Time::new(dt.timestamp(), S5);
+        let t = Time::<S5>::new(dt.timestamp());
         let result = Utc.timestamp((t + 1).timestamp(), 0);
         let expect = "2019-01-01T00:00:05Z".parse::<DateTime<Utc>>().unwrap();
         assert_eq!(result, expect);
@@ -203,7 +220,7 @@ mod tests {
     #[test]
     fn test_add_2() {
         let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        let t = Time::new(dt.timestamp(), S5);
+        let t = Time::<S5>::new(dt.timestamp());
         let result = Utc.timestamp((t + 2).timestamp(), 0);
         let expect = "2019-01-01T00:00:10Z".parse::<DateTime<Utc>>().unwrap();
         assert_eq!(result, expect);
@@ -212,17 +229,17 @@ mod tests {
     #[test]
     fn test_conv_ok() {
         let dt = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        let t = Time::new(dt.timestamp(), S5);
-        let result = t.try_into(D1);
-        let expect = Ok(Time::new(dt.timestamp(), D1));
+        let t = Time::<S5>::new(dt.timestamp());
+        let result = t.try_into::<D1>();
+        let expect = Ok(Time::<D1>::new(dt.timestamp()));
         assert_eq!(result, expect);
     }
 
     #[test]
     fn test_conv_ng() {
         let dt = "2019-01-01T01:00:05Z".parse::<DateTime<Utc>>().unwrap();
-        let t = Time::new(dt.timestamp(), S5);
-        let result = t.try_into(D1);
+        let t = Time::<S5>::new(dt.timestamp());
+        let result = t.try_into::<D1>();
         let expect = Err(());
         assert_eq!(result, expect);
     }

@@ -1,19 +1,20 @@
 use crate::time::*;
+use crate::seq::*;
 use crate::*;
 
-pub struct VecIndicator<G, V> {
-    granularity: G,
-    offset: Time<G>,
+pub struct VecIndicator<S, V> {
+    // granularity: S,
+    offset: S,
     vec: Vec<V>,
 }
 
-impl<G, V> VecIndicator<G, V>
+impl<S, V> VecIndicator<S, V>
 where
-    G: Granularity + Copy,
+    // S: Granularity + Copy,
 {
-    pub fn new(offset: Time<G>, source: Vec<V>) -> Self {
+    pub fn new(offset: S, source: Vec<V>) -> Self {
         Self {
-            granularity: offset.granularity(),
+            // granularity: offset.granularity(),
             offset: offset,
             vec: source,
         }
@@ -24,23 +25,24 @@ where
     }
 }
 
-impl<G, V> Indicator<G, V> for VecIndicator<G, V>
-where
-    V: Clone,
-    G: Granularity + Copy,
+impl<S, V> Indicator<S, V> for VecIndicator<S, V>
+// where
+// V: Clone,
+// S: Granularity + Copy,
 {
-    fn granularity(&self) -> G {
-        self.granularity
-    }
+    // fn granularity(&self) -> S {
+    //     self.granularity
+    // }
 }
 
-impl<G, V> FuncIndicator<G, V> for VecIndicator<G, V>
+impl<S, V> FuncIndicator<S, V> for VecIndicator<S, V>
 where
     V: Clone,
-    G: Granularity + Copy,
+    // S: Granularity + Copy,
+    S: Sequence,
 {
-    fn value(&self, time: Time<G>) -> MaybeValue<V> {
-        let i = (time.timestamp() - self.offset.timestamp()) / self.granularity.unit_duration();
+    fn value(&self, seq: S) -> MaybeValue<V> {
+        let i = seq.distance_from(&self.offset);
         if i >= 0 && i < (self.vec.len() as i64) {
             MaybeValue::Value(self.vec[i as usize].clone())
         } else {
@@ -49,12 +51,12 @@ where
     }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
     use crate::indicator::*;
-    use crate::time::ffi::*;
+    use crate::seq::ffi::*;
     use std::cell::RefCell;
     use std::mem::drop;
     use std::os::raw::*;
@@ -105,10 +107,11 @@ mod ffi {
 mod tests {
     use super::*;
     use MaybeValue::*;
+    use crate::granularity::*;
 
     #[test]
     fn test_vec() {
-        let offset = Time::new(0, S5);
+        let offset = Time::<S5>::new(0);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let expect = vec![Value(1.0), Value(2.0), Value(3.0), Value(4.0), Value(5.0)];
 

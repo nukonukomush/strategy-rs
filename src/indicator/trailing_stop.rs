@@ -1,4 +1,5 @@
 use super::*;
+use crate::seq::*;
 use crate::position::*;
 
 pub struct TrailingStop<G, IPrice, IPos> {

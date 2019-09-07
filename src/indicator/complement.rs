@@ -1,16 +1,17 @@
 use super::*;
 use crate::library::lru_cache::LRUCache;
+use crate::seq::*;
 use std::cell::RefCell;
 
-pub struct ComplementWithLastValue<G, V, I> {
+pub struct ComplementWithLastValue<S, V, I> {
     source: I,
-    cache: RefCell<LRUCache<Time<G>, Option<V>>>,
-    phantom: std::marker::PhantomData<G>,
+    cache: RefCell<LRUCache<S, Option<V>>>,
+    phantom: std::marker::PhantomData<S>,
 }
 
-impl<G, V, I> ComplementWithLastValue<G, V, I>
+impl<S, V, I> ComplementWithLastValue<S, V, I>
 where
-    G: Granularity + Eq + std::hash::Hash + Copy,
+    S: Sequence,
     V: Clone,
 {
     pub fn new(source: I, capacity: usize) -> Self {
@@ -21,47 +22,47 @@ where
         }
     }
 
-    fn get_cache(&self, time: Time<G>) -> Option<Option<V>> {
-        self.cache.borrow_mut().get(&time).map(|v| v.clone())
+    fn get_cache(&self, seq: S) -> Option<Option<V>> {
+        self.cache.borrow_mut().get(&seq).map(|v| v.clone())
     }
 
-    fn set_cache(&self, time: Time<G>, value: Option<V>) {
-        self.cache.borrow_mut().insert(time, value);
+    fn set_cache(&self, seq: S, value: Option<V>) {
+        self.cache.borrow_mut().insert(seq, value);
     }
 }
 
-impl<G, V, I> Indicator<G, V> for ComplementWithLastValue<G, V, I>
+impl<S, V, I> Indicator<S, V> for ComplementWithLastValue<S, V, I>
 where
-    G: Granularity + Eq + std::hash::Hash + Copy + Debug,
+    S: Sequence,
     V: Clone + Debug,
-    I: Indicator<G, Option<V>>,
+    I: Indicator<S, Option<V>>,
 {
-    fn granularity(&self) -> G {
-        self.source.granularity()
-    }
+    // fn granularity(&self) -> S {
+    //     self.source.granularity()
+    // }
 }
 
 use std::fmt::Debug;
-impl<G, V, I> FuncIndicator<G, V> for ComplementWithLastValue<G, V, I>
+impl<S, V, I> FuncIndicator<S, V> for ComplementWithLastValue<S, V, I>
 where
-    G: Granularity + Eq + std::hash::Hash + Copy + Debug,
+    S: Sequence,
     V: Clone + Debug,
-    I: FuncIndicator<G, Option<V>>,
+    I: FuncIndicator<S, Option<V>>,
 {
-    fn value(&self, time: Time<G>) -> MaybeValue<V> {
-        let cache = self.get_cache(time);
+    fn value(&self, seq: S) -> MaybeValue<V> {
+        let cache = self.get_cache(seq);
         match cache {
             Some(Some(v)) => MaybeValue::Value(v),
             Some(None) => MaybeValue::OutOfRange,
             None => {
-                let src_value = try_value!(self.source.value(time));
+                let src_value = try_value!(self.source.value(seq));
                 let value = match src_value {
                     Some(v) => MaybeValue::Value(v),
-                    None => self.value(time - 1),
+                    None => self.value(seq - 1),
                 };
                 match value.clone() {
-                    MaybeValue::Value(v) => self.set_cache(time, Some(v)),
-                    MaybeValue::OutOfRange => self.set_cache(time, None),
+                    MaybeValue::Value(v) => self.set_cache(seq, Some(v)),
+                    MaybeValue::OutOfRange => self.set_cache(seq, None),
                 };
                 value
             }
@@ -69,12 +70,12 @@ where
     }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 pub mod ffi {
     use super::*;
     use crate::indicator::ffi::*;
     use crate::indicator::*;
-    use crate::time::ffi::*;
+    use crate::seq::ffi::*;
     use std::cell::RefCell;
     use std::mem::drop;
     use std::os::raw::*;
@@ -115,12 +116,13 @@ pub mod ffi {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::granularity::*;
     use crate::storage::*;
     use MaybeValue::*;
 
     #[test]
     fn test_cmpl() {
-        let offset = Time::new(0, S5);
+        let offset = Time::<S5>::new(0);
         let mut storage = Storage::new(offset);
         storage.add(offset + 2, 1.0);
         storage.add(offset + 3, 2.0);

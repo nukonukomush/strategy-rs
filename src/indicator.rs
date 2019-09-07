@@ -1,3 +1,4 @@
+use crate::seq::*;
 use crate::time::*;
 use crate::*;
 use std::cell::RefCell;
@@ -44,17 +45,12 @@ macro_rules! try_value {
     };
 }
 
-// Indiator は、かならず Granularity をもつ。
-// Granularity の変換の際、一番小さい Granularity (1秒) にもどして相互変換する。
+pub trait Indicator<S, V> {}
 
-pub trait Indicator<G, V> {
-    fn granularity(&self) -> G;
-}
+pub trait FuncIndicator<S, V>: Indicator<S, V> {
+    fn value(&self, seq: S) -> MaybeValue<V>;
 
-pub trait FuncIndicator<G, V>: Indicator<G, V> {
-    fn value(&self, time: Time<G>) -> MaybeValue<V>;
-
-    fn map<V2, F>(self, f: F) -> stream::Map<G, V, V2, Self, F>
+    fn map<V2, F>(self, f: F) -> stream::Map<S, V, V2, Self, F>
     where
         Self: Sized,
         F: Fn(V) -> V2,
@@ -62,15 +58,15 @@ pub trait FuncIndicator<G, V>: Indicator<G, V> {
         stream::Map::new(self, f)
     }
 
-    fn zip<V2, I>(self, other: I) -> stream::Zip<G, V, V2, Self, I>
+    fn zip<V2, I>(self, other: I) -> stream::Zip<S, V, V2, Self, I>
     where
         Self: Sized,
-        I: FuncIndicator<G, V2>,
+        I: FuncIndicator<S, V2>,
     {
         stream::Zip::new(self, other)
     }
 
-    fn into_iter(self, offset: Time<G>) -> stream::FuncIter<G, Self>
+    fn into_iter(self, offset: S) -> stream::FuncIter<S, Self>
     where
         Self: Sized,
     {
@@ -85,12 +81,12 @@ pub trait FuncIndicator<G, V>: Indicator<G, V> {
     }
 }
 
-pub trait IterIndicator<G, V>: Indicator<G, V> {
+pub trait IterIndicator<S, V>: Indicator<S, V> {
     fn next(&mut self) -> MaybeValue<V>;
 
-    fn offset(&self) -> Time<G>;
+    fn offset(&self) -> S;
 
-    fn map<V2, F>(self, f: F) -> stream::Map<G, V, V2, Self, F>
+    fn map<V2, F>(self, f: F) -> stream::Map<S, V, V2, Self, F>
     where
         Self: Sized,
         F: FnMut(V) -> V2,
@@ -98,37 +94,40 @@ pub trait IterIndicator<G, V>: Indicator<G, V> {
         stream::Map::new(self, f)
     }
 
-    fn zip<V2, I>(self, other: I) -> stream::Zip<G, V, V2, Self, I>
+    fn zip<V2, I>(self, other: I) -> stream::Zip<S, V, V2, Self, I>
     where
         Self: Sized,
-        I: IterIndicator<G, V2>,
+        I: IterIndicator<S, V2>,
     {
         stream::Zip::new(self, other)
     }
 
-    fn into_std(self) -> stream::StdIter<G, V, Self>
+    fn into_std(self) -> stream::StdIter<S, V, Self>
     where
         Self: Sized,
     {
         stream::StdIter::new(self)
     }
 
-    fn into_storage(self) -> stream::IterStorage<G, V, Self>
+    fn into_storage(self) -> stream::IterStorage<S, V, Self>
     where
         Self: Sized,
-        G: Granularity + Eq + std::hash::Hash + Copy + Ord,
+        S: Sequence + std::hash::Hash + Copy,
     {
         stream::IterStorage::new(self)
     }
 }
 
-pub trait Provisional<G, V> {
-    fn provisional_value(&self, time: Time<G>) -> MaybeValue<V>;
+pub trait Provisional<S, V>
+where
+    S: Sequence,
+{
+    fn provisional_value(&self, seq: S) -> MaybeValue<V>;
 }
 
-// impl<G, V> Indicator<G, V> for &dyn Indicator<G, V> {
+// impl<S, V> Indicator<S, V> for &dyn Indicator<S, V> {
 //     #[allow(unconditional_recursion)]
-//     fn value(&self, time: Time<G>) -> Option<V> {
+//     fn value(&self, time: Sequence) -> Option<V> {
 //         self.value(time)
 //     }
 
@@ -139,40 +138,44 @@ pub trait Provisional<G, V> {
 // }
 //
 
-impl<G, V, I> Indicator<G, V> for RefCell<I>
+impl<S, V, I> Indicator<S, V> for RefCell<I>
 where
-    I: Indicator<G, V>,
+    S: Sequence,
+    I: Indicator<S, V>,
 {
-    fn granularity(&self) -> G {
-        (*self.borrow()).granularity()
-    }
+    // fn granularity(&self) -> G {
+    //     (*self.borrow()).granularity()
+    // }
 }
 
-impl<G, V, I> FuncIndicator<G, V> for RefCell<I>
+impl<S, V, I> FuncIndicator<S, V> for RefCell<I>
 where
-    I: FuncIndicator<G, V>,
+    S: Sequence,
+    I: FuncIndicator<S, V>,
 {
-    fn value(&self, time: Time<G>) -> MaybeValue<V> {
-        (*self.borrow()).value(time)
+    fn value(&self, seq: S) -> MaybeValue<V> {
+        (*self.borrow()).value(seq)
     }
 }
 
 use std::ops::Deref;
-impl<G, V, I> Indicator<G, V> for Rc<I>
+impl<S, V, I> Indicator<S, V> for Rc<I>
 where
-    I: Indicator<G, V>,
+    S: Sequence,
+    I: Indicator<S, V>,
 {
-    fn granularity(&self) -> G {
-        self.deref().granularity()
-    }
+    // fn granularity(&self) -> G {
+    //     self.deref().granularity()
+    // }
 }
 
-impl<G, V, I> FuncIndicator<G, V> for Rc<I>
+impl<S, V, I> FuncIndicator<S, V> for Rc<I>
 where
-    I: FuncIndicator<G, V>,
+    S: Sequence,
+    I: FuncIndicator<S, V>,
 {
-    fn value(&self, time: Time<G>) -> MaybeValue<V> {
-        self.deref().value(time)
+    fn value(&self, seq: S) -> MaybeValue<V> {
+        self.deref().value(seq)
     }
 }
 
@@ -195,9 +198,9 @@ pub mod tests {
         }
     }
 
-    // pub fn indicator_iter<G, V, I>(indicator: I) -> impl Iterator<Item = V>
+    // pub fn indicator_iter<S, V, I>(indicator: I) -> impl Iterator<Item = V>
     // where
-    //     I: Indicator<G, V>,
+    //     I: Indicator<S, V>,
     // {
     //     let mut index = 0;
     //     let f = move || {
@@ -212,7 +215,7 @@ pub mod tests {
     // }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 pub mod ffi {
     use super::*;
     use crate::ffi::*;
@@ -273,38 +276,40 @@ pub mod ffi {
     }
 
     #[derive(Clone)]
-    pub struct FuncIndicatorPtr<V>(pub Rc<RefCell<dyn FuncIndicator<VarGranularity, V>>>);
+    pub struct FuncIndicatorPtr<S, V>(pub Rc<RefCell<dyn FuncIndicator<S, V>>>);
 
-    impl<V> Indicator<VarGranularity, V> for FuncIndicatorPtr<V> {
-        fn granularity(&self) -> VarGranularity {
-            self.0.borrow().granularity()
+    type G = VarGranularity;
+
+    impl<S, V> Indicator<S, V> for FuncIndicatorPtr<S, V> {
+        // fn granularity(&self) -> G {
+        //     self.0.borrow().granularity()
+        // }
+    }
+
+    impl<S, V> FuncIndicator<S, V> for FuncIndicatorPtr<S, V> {
+        fn value(&self, seq: S) -> MaybeValue<V> {
+            self.0.borrow().value(seq)
         }
     }
 
-    impl<V> FuncIndicator<VarGranularity, V> for FuncIndicatorPtr<V> {
-        fn value(&self, time: Time<VarGranularity>) -> MaybeValue<V> {
-            self.0.borrow().value(time)
-        }
-    }
-
-    impl<V> Deref for FuncIndicatorPtr<V> {
-        type Target = Rc<RefCell<dyn FuncIndicator<VarGranularity, V>>>;
+    impl<S, V> Deref for FuncIndicatorPtr<S, V> {
+        type Target = Rc<RefCell<dyn FuncIndicator<S, V>>>;
         fn deref(&self) -> &Self::Target {
             &self.0
         }
     }
 
     #[repr(C)]
-    pub struct Ptr<V, I> {
+    pub struct Ptr<S, V, I> {
         pub b_ptr: *mut Rc<RefCell<I>>,
-        pub f_ptr: *mut FuncIndicatorPtr<V>,
+        pub f_ptr: *mut FuncIndicatorPtr<S, V>,
     }
 
     macro_rules! define_value {
         ($t:ty, $value:ident) => {
             #[no_mangle]
             pub unsafe extern "C" fn $value(
-                ptr: *mut FuncIndicatorPtr<$t>,
+                ptr: *mut FuncIndicatorPtr<Time<G>, $t>,
                 time: CTime,
             ) -> CMaybeValue<$t> {
                 if ptr.is_null() {
@@ -320,7 +325,7 @@ pub mod ffi {
         ($t1:ty, $t2:ty, $value:ident) => {
             #[no_mangle]
             pub unsafe extern "C" fn $value(
-                ptr: *mut FuncIndicatorPtr<$t1>,
+                ptr: *mut FuncIndicatorPtr<Time<G>, $t1>,
                 time: CTime,
             ) -> CMaybeValue<$t2> {
                 if ptr.is_null() {
@@ -335,9 +340,9 @@ pub mod ffi {
     define_value!(f64, indicator_value_f64);
     define_value!(i32, indicator_value_i32);
     define_value_convert!(Option<f64>, COption<f64>, indicator_value_option_f64);
-    use cross::ffi::*;
-    use cross::*;
-    define_value_convert!(CrossState, CCrossState, indicator_value_cross);
+    // use cross::ffi::*;
+    // use cross::*;
+    // define_value_convert!(CrossState, CCrossState, indicator_value_cross);
     // use crate::position::ffi::*;
     // use crate::position::*;
     // define_value_convert!(
@@ -354,6 +359,7 @@ pub mod ffi {
     // );
 }
 
+#[cfg(ffi)]
 pub mod ffi_iter {
     use super::*;
     use crate::indicator::ffi::*;
@@ -367,8 +373,8 @@ pub mod ffi_iter {
     use stream::*;
 
     type G = VarGranularity;
-    type IPtr<V> = Ptr<V, IterVec<G, V, FuncIter<G, FuncIndicatorPtr<V>>>>;
-    // type IPtr<V> = Ptr<V, IterVec<G, V, Map<G, V, V, kjFuncIter<G, FuncIndicatorPtr<V>>>>;
+    type IPtr<Sq, V> = Ptr<Sq, V, IterVec<S, V, FuncIter<S, FuncIndicatorPtr<V>>>>;
+    // type IPtr<V> = Ptr<V, IterVec<S, V, Map<S, V, V, kjFuncIter<S, FuncIndicatorPtr<V>>>>;
 
     // pub struct CallBack<V1, V2> {
     //     cb: extern "C" fn(V1) -> V2,
@@ -418,3 +424,4 @@ pub mod stream;
 pub mod vec;
 // pub mod trailing_stop;
 pub mod count;
+// pub mod transaction;
