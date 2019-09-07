@@ -147,72 +147,72 @@ def test_cross():
     assert result == expect
 
 
-# def test_func():
-#     offset = ffi.Time("2019-01-01 00:00:00", 60)
-#     source_1 = [1, 2, 3, 4, 5]
-#     source_2 = [0, -1, 0, 1, 0]
-#     expect = [
-#         ffi.MaybeValue(c_double).value(0),
-#         ffi.MaybeValue(c_double).value(2),
-#         ffi.MaybeValue(c_double).value(0),
-#         ffi.MaybeValue(c_double).value(4),
-#         ffi.MaybeValue(c_double).value(0),
-#         ffi.MaybeValue(c_double).out_of_range(),
-#     ]
-#     vec_1 = ffi.Vec(offset, c_double, source_1)
-#     vec_2 = ffi.Vec(offset, c_double, source_2)
+def test_func():
+    offset = ffi.Time("2019-01-01 00:00:00", 60)
+    source_1 = [1, 2, 3, 4, 5]
+    source_2 = [0, -1, 0, 1, 0]
+    expect = [
+        ffi.MaybeValue(c_double).value(0),
+        ffi.MaybeValue(c_double).value(2),
+        ffi.MaybeValue(c_double).value(0),
+        ffi.MaybeValue(c_double).value(4),
+        ffi.MaybeValue(c_double).value(0),
+        ffi.MaybeValue(c_double).out_of_range(),
+    ]
+    vec_1 = ffi.Vec(ffi.Time, c_double, source_1, offset)
+    vec_2 = ffi.Vec(ffi.Time, c_double, source_2, offset)
 
-#     def f(v1, v2):
-#         return v1 * abs(v2)
+    def f(v1, v2):
+        return v1 * abs(v2)
 
-#     func = ffi.Func(c_double, f, vec_1, vec_2)
-#     result = [func.value(offset + i) for i in range(0, 6)]
+    func = ffi.Func(c_double, f, vec_1, vec_2)
+    result = [func.value(offset + i) for i in range(0, 6)]
 
-#     assert result == expect
+    assert result == expect
 
-# def test_slope():
-#     offset = ffi.Time(0, 10)
-#     source = [1, 2, 4, 8, 6]
-#     expect = [
-#         ffi.MaybeValue(c_double).out_of_range(),
-#         ffi.MaybeValue(c_double).value(1),
-#         ffi.MaybeValue(c_double).value(2),
-#         ffi.MaybeValue(c_double).value(4),
-#         ffi.MaybeValue(c_double).value(-2),
-#         ffi.MaybeValue(c_double).out_of_range(),
-#     ]
+def test_slope():
+    offset = ffi.Time(0, 10)
+    source = [1, 2, 4, 8, 6]
+    expect = [
+        ffi.MaybeValue(c_double).out_of_range(),
+        ffi.MaybeValue(c_double).value(1),
+        ffi.MaybeValue(c_double).value(2),
+        ffi.MaybeValue(c_double).value(4),
+        ffi.MaybeValue(c_double).value(-2),
+        ffi.MaybeValue(c_double).out_of_range(),
+    ]
 
-#     vec = ffi.Vec(offset, c_double, source)
-#     slope = ffi.Slope(c_double, vec)
-#     result = [slope.value(offset + i) for i in range(0, 6)]
+    vec = ffi.Vec(ffi.Time, c_double, source, offset)
+    slope = ffi.Slope(ffi.Time, c_double, vec)
+    result = [slope.value(offset + i) for i in range(0, 6)]
 
-#     assert result == expect
+    assert result == expect
 
-# def test_iter_func():
-#     offset = ffi.Time(0, 10)
-#     source = [1, 2, 4, 8, 6]
-#     expect = [
-#         ffi.MaybeValue(c_double).value(1),
-#         ffi.MaybeValue(c_double).value(3),
-#         ffi.MaybeValue(c_double).value(7),
-#         ffi.MaybeValue(c_double).value(15),
-#         ffi.MaybeValue(c_double).value(21),
-#         ffi.MaybeValue(c_double).out_of_range(),
-#     ]
+def test_iter_func():
+    offset = ffi.Time(0, 10)
+    source = [1, 2, 4, 8, 6]
+    expect = [
+        ffi.MaybeValue(c_double).value(1),
+        ffi.MaybeValue(c_double).value(3),
+        ffi.MaybeValue(c_double).value(7),
+        ffi.MaybeValue(c_double).value(15),
+        ffi.MaybeValue(c_double).value(21),
+        ffi.MaybeValue(c_double).out_of_range(),
+    ]
 
-#     s = 0
-#     def func(v):
-#         nonlocal s
-#         s += v
-#         return s
+    s = 0
+    def func(v):
+        nonlocal s
+        s += v
+        return s
 
-#     vec = ffi.Vec(offset, c_double, source)
-#     f = ffi.IterFunc(c_double, c_double, vec, offset, func)
+    vec = ffi.Vec(ffi.Time, c_double, source, offset)
+    f = ffi.IterFunc(ffi.Time, c_double, c_double, vec, offset, func)
 
-#     assert f.value(offset + 4) == ffi.MaybeValue(c_double).value(21)
+    assert f.value(offset + 4) == ffi.MaybeValue(c_double).value(21)
 
-#     result = [f.value(offset + i) for i in range(0, 6)]
-#     assert result == expect
+    result = [f.value(offset + i) for i in range(0, 6)]
+    assert result == expect
 
 
 # # def test_trailing_stop():

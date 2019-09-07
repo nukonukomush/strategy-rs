@@ -349,13 +349,6 @@ class Cross:
         get_func(_cls_, "new", S1, V1).restype = Ptr
         get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
         get_func(_cls_, "destroy", S1, V1).restype = None
-    # for T, t_str in {
-    #     c_double: "f64",
-    # }.items():
-    #     get_func(_cls_, "new", T).argtypes = [c_void_p, c_void_p]
-    #     get_func(_cls_, "new", T).restype = Ptr
-    #     get_func(_cls_, "destroy", T).argtypes = [Ptr]
-    #     get_func(_cls_, "destroy", T).restype = None
 
     def __init__(self, S, V, source_1, source_2):
         self._S = S
@@ -365,60 +358,63 @@ class Cross:
     def value(self, i):
         return get_func("indicator", "value", self._S, CrossState)(self._ptr.f_ptr, i)
 
-# class Func:
-#     def __init__(self, T, value_func, *sources):
-#         self.T = T
-#         self.sources = sources
-#         self.value_func = value_func
+class Func:
+    def __init__(self, V, value_func, *sources):
+        self.V = V
+        self.sources = sources
+        self.value_func = value_func
 
-#     def value(self, i):
-#         args = [source.value(i) for source in self.sources]
-#         out_of_range_args = [arg for arg in args if arg.is_value == 0 ]
-#         if len(out_of_range_args) == 0:
-#             v = self.value_func(*[arg.content for arg in args])
-#             return MaybeValue(self.T).value(v)
-#         return MaybeValue(self.T).out_of_range()
+    def value(self, i):
+        args = [source.value(i) for source in self.sources]
+        out_of_range_args = [arg for arg in args if arg.is_value == 0 ]
+        if len(out_of_range_args) == 0:
+            v = self.value_func(*[arg.content for arg in args])
+            return MaybeValue(self.V).value(v)
+        return MaybeValue(self.V).out_of_range()
 
-# class Slope(Indicator):
-#     _cls_ = "slope"
-#     for T in [
-#         c_double,
-#     ]:
-#         get_func(_cls_, "new", T).argtypes = [c_void_p]
-#         get_func(_cls_, "new", T).restype = Ptr
-#         get_func(_cls_, "destroy", T).argtypes = [Ptr]
-#         get_func(_cls_, "destroy", T).restype = None
+class Slope(Indicator):
+    _cls_ = "slope"
+    for S1, S2, V1, V2 in [
+        [Time, Time, c_double, c_double],
+        [TransactionId, c_longlong, c_double, c_double],
+    ]:
+        get_func(_cls_, "new", S1, V1).argtypes = [c_void_p]
+        get_func(_cls_, "new", S1, V1).restype = Ptr
+        get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
+        get_func(_cls_, "destroy", S1, V1).restype = None
 
-#     def __init__(self, T, source):
-#         self._T = T
-#         self._ptr = get_func(self._cls_, "new", self._T)(source._ptr.f_ptr)
+    def __init__(self, S, V, source):
+        self._S = S
+        self._V = V
+        self._ptr = get_func(self._cls_, "new", self._S, self._V)(source._ptr.f_ptr)
 
-# class IterFunc:
-#     def __init__(self, T1, T2, source, offset, func):
-#         self.T1 = T1
-#         self.T2 = T2
-#         self.source = source
-#         self.offset = offset
-#         self.func = func
-#         self.vec = Vec(offset, self.T2, [])
-#         self._ptr = self.vec._ptr
+class IterFunc:
+    def __init__(self, S, V1, V2, source, offset, func):
+        self.S = S
+        self.V1 = V1
+        self.V2 = V2
+        self.source = source
+        self.offset = offset
+        self.func = func
+        self.vec = Vec(self.S, self.V2, [], offset)
+        self._ptr = self.vec._ptr
 
-#     def __next(self):
-#         v = self.source.value(self.offset)
-#         if v.is_value:
-#             self.offset += 1
-#             v2 = self.func(v.content)
-#             self.vec.add(v2)
-#             return MaybeValue(self.T2).value(v2)
-#         else:
-#             return v
+    def __next(self):
+        v = self.source.value(self.offset)
+        if v.is_value:
+            self.offset += 1
+            v2 = self.func(v.content)
+            self.vec.add(v2)
+            return MaybeValue(self.V2).value(v2)
+        else:
+            return v
 
-#     def value(self, i):
-#         while self.offset <= i:
-#             v = self.__next();
-#             if v.is_value == 0:
-#                 break
-#         return self.vec.value(i)
+    def value(self, i):
+        while self.offset <= i:
+            v = self.__next();
+            if v.is_value == 0:
+                break
+        return self.vec.value(i)
 
 # # class ViaIterMap(Indicator):
 # #     _cls_ = "via_iter"
