@@ -1,6 +1,6 @@
 use super::*;
-use crate::seq::*;
 use crate::indicator::ordering::*;
+use crate::seq::*;
 
 pub struct Cross<S, I> {
     source: I,
@@ -34,9 +34,6 @@ where
     S: Sequence,
     I: Indicator<S, std::cmp::Ordering>,
 {
-    // fn granularity(&self) -> S {
-    //     self.source.granularity()
-    // }
 }
 
 impl<S, I> FuncIndicator<S, CrossState> for Cross<S, I>
@@ -74,17 +71,12 @@ pub enum CrossState {
     GtToLt,
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
 pub mod ffi {
     use super::*;
+    use crate::granularity::ffi::*;
     use crate::indicator::ffi::*;
-    use crate::indicator::*;
-    use crate::seq::ffi::*;
-    use std::cell::RefCell;
-    use std::mem::drop;
-    use std::os::raw::*;
-    use std::ptr;
-    use std::rc::Rc;
+    use crate::time::ffi::*;
 
     #[repr(C)]
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -109,47 +101,54 @@ pub mod ffi {
         }
     }
 
-    type IPtr<V> = Ptr<
+    type IPtr<S, V> = Ptr<
+        S,
         CrossState,
-        Cross<
-            VarGranularity,
-            Ordering<VarGranularity, V, FuncIndicatorPtr<V>, FuncIndicatorPtr<V>>,
-        >,
+        Cross<S, Ordering<S, V, FuncIndicatorPtr<S, V>, FuncIndicatorPtr<S, V>>>,
     >;
 
-    macro_rules! define_cross_methods {
-        ($t:ty, $new:ident, $destroy:ident) => {
-            #[no_mangle]
-            pub unsafe extern "C" fn $new(
-                source_1: *mut FuncIndicatorPtr<$t>,
-                source_2: *mut FuncIndicatorPtr<$t>,
-            ) -> IPtr<$t> {
-                let source_1 = (*source_1).clone();
-                let source_2 = (*source_2).clone();
-                let ptr = Rc::new(RefCell::new(Cross::new(source_1, source_2)));
-                Ptr {
-                    b_ptr: Box::into_raw(Box::new(ptr.clone())),
-                    f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
-                }
-            }
+    pub unsafe fn new<S, V>(
+        source_1: *mut FuncIndicatorPtr<S, V>,
+        source_2: *mut FuncIndicatorPtr<S, V>,
+    ) -> IPtr<S, V>
+    where
+        S: Sequence + 'static,
+        V: Clone + PartialOrd + 'static,
+    {
+        let source_1 = (*source_1).clone();
+        let source_2 = (*source_2).clone();
+        let ptr = Cross::new(source_1, source_2).into_sync_ptr();
+        Ptr {
+            b_ptr: Box::into_raw(Box::new(ptr.clone())),
+            f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+        }
+    }
 
+    macro_rules! define_new {
+        ($s:ty, $cs:ty, $v:ty, $cv:ty, $name:ident) => {
             #[no_mangle]
-            pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
-                destroy(ptr.b_ptr);
-                destroy(ptr.f_ptr);
+            pub unsafe extern "C" fn $name(
+                source_1: *mut FuncIndicatorPtr<$s, $v>,
+                source_2: *mut FuncIndicatorPtr<$s, $v>,
+            ) -> IPtr<$s, $v> {
+                new(source_1, source_2)
             }
         };
     }
 
-    define_cross_methods!(f64, cross_new_f64, cross_destroy_f64);
+    define_new!(GTime<Var>, CTime, f64, f64, cross_new_time_f64);
+    define_new!(TransactionId, i64, f64, f64, cross_new_tid_f64);
+
+    define_destroy!(IPtr<GTime<Var>, f64>, cross_destroy_time_f64);
+    define_destroy!(IPtr<TransactionId, f64>, cross_destroy_tid_f64);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::granularity::*;
     use crate::vec::*;
     use MaybeValue::*;
-    use crate::granularity::*;
 
     #[test]
     fn test_cross() {

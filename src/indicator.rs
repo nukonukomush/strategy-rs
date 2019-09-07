@@ -305,7 +305,6 @@ pub mod ffi {
     pub unsafe fn value<S, CS, V, CV>(ptr: *mut FuncIndicatorPtr<S, V>, seq: CS) -> CMaybeValue<CV>
     where
         CS: Into<S>,
-        V: Default,
         CV: From<V> + Default,
     {
         if ptr.is_null() {
@@ -347,42 +346,6 @@ pub mod ffi {
         };
     }
 
-    // macro_rules! define_value {
-    //     ($t:ty, $value:ident) => {
-    //         #[no_mangle]
-    //         pub unsafe extern "C" fn $value(
-    //             ptr: *mut FuncIndicatorPtr<GTime<Var>, $t>,
-    //             time: CTime,
-    //         ) -> CMaybeValue<$t> {
-    //             if ptr.is_null() {
-    //                 return CMaybeValue::out_of_range();
-    //             }
-
-    //             let ptr = &*ptr;
-    //             CMaybeValue::from(ptr.borrow().value(time.into()))
-    //         }
-    //     };
-    // }
-    // macro_rules! define_value_convert {
-    //     ($t1:ty, $t2:ty, $value:ident) => {
-    //         #[no_mangle]
-    //         pub unsafe extern "C" fn $value(
-    //             ptr: *mut FuncIndicatorPtr<GTime<Var>, $t1>,
-    //             time: CTime,
-    //         ) -> CMaybeValue<$t2> {
-    //             if ptr.is_null() {
-    //                 return CMaybeValue::out_of_range();
-    //             }
-
-    //             let ptr = &*ptr;
-    //             CMaybeValue::from(ptr.borrow().value(time.into()).map(<$t2>::from))
-    //         }
-    //     };
-    // }
-    // define_value!(f64, indicator_value_f64);
-    // define_value!(i32, indicator_value_i32);
-    // define_value_convert!(Option<f64>, COption<f64>, indicator_value_option_f64);
-
     define_value!(GTime<Var>, CTime, f64, f64, indicator_value_time_f64);
     define_value!(GTime<Var>, CTime, i32, i32, indicator_value_time_i32);
     define_value!(
@@ -393,9 +356,11 @@ pub mod ffi {
         indicator_value_time_option_f64
     );
     define_value!(TransactionId, i64, f64, f64, indicator_value_tid_f64);
-    // use cross::ffi::*;
-    // use cross::*;
-    // define_value_convert!(CrossState, CCrossState, indicator_value_cross);
+
+    use cross::ffi::*;
+    use cross::*;
+    define_value!(GTime<Var>, CTime, CrossState, CCrossState, indicator_value_time_cross);
+    define_value!(TransactionId, i64, CrossState, CCrossState, indicator_value_tid_cross);
     // use crate::position::ffi::*;
     // use crate::position::*;
     // define_value_convert!(

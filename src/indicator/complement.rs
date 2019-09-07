@@ -34,19 +34,15 @@ where
 impl<S, V, I> Indicator<S, V> for ComplementWithLastValue<S, V, I>
 where
     S: Sequence,
-    V: Clone + Debug,
+    V: Clone,
     I: Indicator<S, Option<V>>,
 {
-    // fn granularity(&self) -> S {
-    //     self.source.granularity()
-    // }
 }
 
-use std::fmt::Debug;
 impl<S, V, I> FuncIndicator<S, V> for ComplementWithLastValue<S, V, I>
 where
     S: Sequence,
-    V: Clone + Debug,
+    V: Clone,
     I: FuncIndicator<S, Option<V>>,
 {
     fn value(&self, seq: S) -> MaybeValue<V> {
@@ -70,27 +66,43 @@ where
     }
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
 pub mod ffi {
     use super::*;
+    use crate::granularity::ffi::*;
     use crate::indicator::ffi::*;
-    use crate::indicator::*;
-    use crate::seq::ffi::*;
-    use std::cell::RefCell;
-    use std::mem::drop;
-    use std::os::raw::*;
-    use std::ptr;
-    use std::rc::Rc;
+    use crate::time::ffi::*;
 
-    type IPtr<V> = Ptr<V, ComplementWithLastValue<VarGranularity, V, FuncIndicatorPtr<Option<V>>>>;
+    type IPtr<S, V> = Ptr<S, V, ComplementWithLastValue<S, V, FuncIndicatorPtr<S, Option<V>>>>;
 
-    macro_rules! define_cmpl_methods {
-        ($t:ty, $new:ident, $destroy:ident) => {
+    pub unsafe fn new<S, CS, V, CV>(
+        source: *mut FuncIndicatorPtr<S, Option<V>>,
+        capacity: c_int,
+    ) -> IPtr<S, V>
+    where
+        S: Sequence + 'static,
+        CS: Into<S>,
+        V: Clone + 'static,
+        CV: Into<V>,
+    {
+        let source = (*source).clone();
+        let ptr = Rc::new(RefCell::new(ComplementWithLastValue::new(
+            source,
+            capacity as usize,
+        )));
+        Ptr {
+            b_ptr: Box::into_raw(Box::new(ptr.clone())),
+            f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+        }
+    }
+
+    macro_rules! define_new {
+        ($s:ty, $cs:ty, $v:ty, $cv:ty, $name:ident) => {
             #[no_mangle]
-            pub unsafe extern "C" fn $new(
-                source: *mut FuncIndicatorPtr<Option<$t>>,
+            pub unsafe extern "C" fn $name(
+                source: *mut FuncIndicatorPtr<$s, Option<$v>>,
                 capacity: c_int,
-            ) -> IPtr<$t> {
+            ) -> IPtr<$s, $v> {
                 let source = (*source).clone();
                 let ptr = Rc::new(RefCell::new(ComplementWithLastValue::new(
                     source,
@@ -101,16 +113,14 @@ pub mod ffi {
                     f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
                 }
             }
-
-            #[no_mangle]
-            pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
-                destroy(ptr.b_ptr);
-                destroy(ptr.f_ptr);
-            }
         };
     }
 
-    define_cmpl_methods!(f64, cmpl_new_f64, cmpl_destroy_f64);
+    define_new!(GTime<Var>, CTime, f64, f64, cmpl_new_time_f64);
+    define_new!(TransactionId, i64, f64, f64, cmpl_new_tid_f64);
+
+    define_destroy!(IPtr<GTime<Var>, f64>, cmpl_destroy_time_f64);
+    define_destroy!(IPtr<TransactionId, f64>, cmpl_destroy_tid_f64);
 }
 
 #[cfg(test)]

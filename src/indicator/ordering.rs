@@ -33,9 +33,6 @@ where
     I1: Indicator<S, V>,
     I2: Indicator<S, V>,
 {
-    // fn granularity(&self) -> S {
-    //     self.source_1.granularity()
-    // }
 }
 
 impl<S, V, I1, I2> FuncIndicator<S, std::cmp::Ordering> for Ordering<S, V, I1, I2>

@@ -225,8 +225,8 @@ class Indicator:
         [Time, Time, c_double, c_double],
         [Time, Time, c_int, c_int],
         [Time, Time, Option(c_double), Option(c_double)],
+        [Time, Time, CrossState, c_int],
         [TransactionId, c_longlong, c_double, c_double],
-        # CrossState: c_int,
     ]:
         get_func("indicator", "value", S1, V1).argtypes = [c_void_p, S2]
         get_func("indicator", "value", S1, V1).restype = MaybeValue(V2)
@@ -316,49 +316,54 @@ class Sma(Indicator):
         get_func(_cls_, "new", S1, V1).restype = Ptr
         get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
         get_func(_cls_, "destroy", S1, V1).restype = None
-    # for T in [
-    #     c_double,
-    # ]:
-    #     get_func(_cls_, "new", T).argtypes = [c_void_p, c_int]
-    #     get_func(_cls_, "new", T).restype = Ptr
-    #     get_func(_cls_, "destroy", T).argtypes = [Ptr]
-    #     get_func(_cls_, "destroy", T).restype = None
 
     def __init__(self, S, V, source, period):
         self._S = S
         self._V = V
         self._ptr = get_func(self._cls_, "new", self._S, self._V)(source._ptr.f_ptr, period)
 
-# class Cmpl(Indicator):
-#     _cls_ = "cmpl"
-#     for T in [
-#         c_double,
-#     ]:
-#         get_func(_cls_, "new", T).argtypes = [c_void_p, c_int]
-#         get_func(_cls_, "new", T).restype = Ptr
-#         get_func(_cls_, "destroy", T).argtypes = [Ptr]
-#         get_func(_cls_, "destroy", T).restype = None
 
-#     def __init__(self, T, source, capacity):
-#         self._T = T
-#         self._ptr = get_func(self._cls_, "new", self._T)(source._ptr.f_ptr, capacity)
+class Cmpl(Indicator):
+    _cls_ = "cmpl"
+    for S1, S2, V1, V2 in [
+        [Time, Time, c_double, c_double],
+        [TransactionId, c_longlong, c_double, c_double],
+    ]:
+        get_func(_cls_, "new", S1, V1).argtypes = [c_void_p, c_int]
+        get_func(_cls_, "new", S1, V1).restype = Ptr
+        get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
+        get_func(_cls_, "destroy", S1, V1).restype = None
 
-# class Cross:
-#     _cls_ = "cross"
-#     for T, t_str in {
-#         c_double: "f64",
-#     }.items():
-#         get_func(_cls_, "new", T).argtypes = [c_void_p, c_void_p]
-#         get_func(_cls_, "new", T).restype = Ptr
-#         get_func(_cls_, "destroy", T).argtypes = [Ptr]
-#         get_func(_cls_, "destroy", T).restype = None
+    def __init__(self, S, V, source, capacity):
+        self._S = S
+        self._V = V
+        self._ptr = get_func(self._cls_, "new", self._S, self._V)(source._ptr.f_ptr, capacity)
 
-#     def __init__(self, T, source_1, source_2):
-#         self._T = T
-#         self._ptr = get_func(self._cls_, "new", self._T)(source_1._ptr.f_ptr, source_2._ptr.f_ptr)
+class Cross:
+    _cls_ = "cross"
+    for S1, S2, V1, V2 in [
+        [Time, Time, c_double, c_double],
+        [TransactionId, c_longlong, c_double, c_double],
+    ]:
+        get_func(_cls_, "new", S1, V1).argtypes = [c_void_p, c_void_p]
+        get_func(_cls_, "new", S1, V1).restype = Ptr
+        get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
+        get_func(_cls_, "destroy", S1, V1).restype = None
+    # for T, t_str in {
+    #     c_double: "f64",
+    # }.items():
+    #     get_func(_cls_, "new", T).argtypes = [c_void_p, c_void_p]
+    #     get_func(_cls_, "new", T).restype = Ptr
+    #     get_func(_cls_, "destroy", T).argtypes = [Ptr]
+    #     get_func(_cls_, "destroy", T).restype = None
 
-#     def value(self, i):
-#         return get_func("indicator", "value", CrossState)(self._ptr.f_ptr, i)
+    def __init__(self, S, V, source_1, source_2):
+        self._S = S
+        self._V = V
+        self._ptr = get_func(self._cls_, "new", self._S, self._V)(source_1._ptr.f_ptr, source_2._ptr.f_ptr)
+
+    def value(self, i):
+        return get_func("indicator", "value", self._S, CrossState)(self._ptr.f_ptr, i)
 
 # class Func:
 #     def __init__(self, T, value_func, *sources):
