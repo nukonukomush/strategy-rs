@@ -1,6 +1,7 @@
 use crate::seq::*;
 use crate::time::*;
 use crate::*;
+use approx::*;
 use std::cell::RefCell;
 use std::os::raw::*;
 use std::rc::Rc;
@@ -43,6 +44,47 @@ macro_rules! try_value {
             MaybeValue::OutOfRange => return MaybeValue::OutOfRange,
         }
     };
+}
+
+impl<V> AbsDiffEq for MaybeValue<V>
+where
+    V: AbsDiffEq,
+{
+    type Epsilon = V::Epsilon;
+    #[inline]
+    fn default_epsilon() -> V::Epsilon {
+        V::default_epsilon()
+    }
+
+    #[inline]
+    fn abs_diff_eq(&self, other: &Self, epsilon: V::Epsilon) -> bool {
+        match (self, other) {
+            (MaybeValue::Value(v1), MaybeValue::Value(v2)) => V::abs_diff_eq(v1, v2, epsilon),
+            (MaybeValue::OutOfRange, MaybeValue::OutOfRange) => true,
+            _ => false,
+        }
+    }
+}
+
+impl<V> RelativeEq for MaybeValue<V>
+where
+    V: RelativeEq,
+{
+    #[inline]
+    fn default_max_relative() -> V::Epsilon {
+        V::default_max_relative()
+    }
+
+    #[inline]
+    fn relative_eq(&self, other: &Self, epsilon: V::Epsilon, max_relative: V::Epsilon) -> bool {
+        match (self, other) {
+            (MaybeValue::Value(v1), MaybeValue::Value(v2)) => {
+                V::relative_eq(v1, v2, epsilon, max_relative)
+            }
+            (MaybeValue::OutOfRange, MaybeValue::OutOfRange) => true,
+            _ => false,
+        }
+    }
 }
 
 pub trait Indicator<S, V> {}
@@ -359,8 +401,20 @@ pub mod ffi {
 
     use cross::ffi::*;
     use cross::*;
-    define_value!(GTime<Var>, CTime, CrossState, CCrossState, indicator_value_time_cross);
-    define_value!(TransactionId, i64, CrossState, CCrossState, indicator_value_tid_cross);
+    define_value!(
+        GTime<Var>,
+        CTime,
+        CrossState,
+        CCrossState,
+        indicator_value_time_cross
+    );
+    define_value!(
+        TransactionId,
+        i64,
+        CrossState,
+        CCrossState,
+        indicator_value_tid_cross
+    );
     // use crate::position::ffi::*;
     // use crate::position::*;
     // define_value_convert!(
@@ -443,3 +497,5 @@ pub mod vec;
 // pub mod trailing_stop;
 pub mod count;
 // pub mod transaction;
+pub mod balance;
+pub mod trade;

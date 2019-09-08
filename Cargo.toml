@@ -10,6 +10,7 @@ edition = "2018"
 chrono = "0.4.7"
 linked-hash-map = "0.5.2"
 maths-traits = "0.1.3"
+approx = "0.3.2"
 
 
 [lib]
