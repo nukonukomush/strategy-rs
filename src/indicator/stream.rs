@@ -207,16 +207,16 @@ where
     // }
 }
 
-impl<S, V, I> FuncIndicator<S, V> for FuncIter<S, I>
-where
-    // S: Granularity,
-    S: Sequence,
-    I: FuncIndicator<S, V>,
-{
-    fn value(&self, seq: S) -> MaybeValue<V> {
-        self.source.value(seq)
-    }
-}
+// impl<S, V, I> FuncIndicator<S, V> for FuncIter<S, I>
+// where
+//     // S: Granularity,
+//     S: Sequence,
+//     I: FuncIndicator<S, V>,
+// {
+//     fn value(&self, seq: S) -> MaybeValue<V> {
+//         self.source.value(seq)
+//     }
+// }
 
 impl<S, V, I> IterIndicator<S, V> for FuncIter<S, I>
 where

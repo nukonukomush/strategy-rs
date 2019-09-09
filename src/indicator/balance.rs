@@ -48,7 +48,6 @@ mod tests {
     use crate::vec::*;
     use LongOrShort::*;
     use MaybeValue::*;
-    use OpenOrClose::*;
 
     use approx::assert_relative_eq;
 
@@ -83,12 +82,41 @@ mod tests {
         let pl = ProfitLoss::new(source);
 
         let result = (0..4).map(|i| pl.value(offset + i)).collect::<Vec<_>>();
-        assert_relative_eq!(result.as_slice(), expect.as_slice(), max_relative = 0.0000001);
+        assert_relative_eq!(
+            result.as_slice(),
+            expect.as_slice(),
+            max_relative = 0.0000001
+        );
+
+        let mut sum = 0.0;
+        let balance = pl.into_iter(offset).map(move |v| {
+            sum += v;
+            sum
+        });
+        let balance_result = balance.into_std().collect::<Vec<_>>();
+        let balance_expect = vec![0.0, 0.0, 26.6, 56.6];
+        assert_relative_eq!(
+            balance_result.as_slice(),
+            balance_expect.as_slice(),
+            max_relative = 0.0000001
+        );
     }
 }
 
-// pub struct Balance {
-//     balance: f64,
+// pub struct Cumulate<S, V, I> {
+//     state: V,
+//     source: I,
+//     phantom: std::marker::PhantomData<S>,
+// }
+
+// impl<S, V, I> Cumulate<S, V, I> {
+//     pub fn new(source: I, initial_state: V) -> Self {
+//         Self {
+//             state: initial_state,
+//             source: ,
+//             phantom: std::marker::PhantomData,
+//         }
+//     }
 // }
 
 // impl<S> Indicator<S, f64> for Balance where S: Sequence {}
