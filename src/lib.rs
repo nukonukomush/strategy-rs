@@ -67,6 +67,7 @@ pub mod seq;
 pub mod granularity;
 pub mod time;
 pub mod strategy;
+pub mod ticket;
 
 use indicator::*;
 

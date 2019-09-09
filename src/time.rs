@@ -56,6 +56,21 @@ impl<G> Into<DateTime<Utc>> for Time<G> {
     }
 }
 
+impl<G> std::convert::TryFrom<DateTime<Utc>> for Time<G>
+where
+    G: StaticGranularity,
+{
+    type Error = ();
+    fn try_from(dt: DateTime<Utc>) -> Result<Self, Self::Error> {
+        let t = dt.timestamp();
+        if G::is_valid(t) {
+            Ok(Time(t, std::marker::PhantomData))
+        } else {
+            Err(())
+        }
+    }
+}
+
 // impl<G> std::iter::Iterator for TimeRangeTo<G>
 // where
 //     G: Granularity + Copy + Ord,

@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+use crate::ticket::*;
 
 // #[derive(Clone, Copy, PartialEq, Eq)]
 // pub enum OpenOrClose {
@@ -391,17 +392,6 @@ use crate::seq::*;
 //     }
 // }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct TicketId(pub i64);
-
-#[derive(Clone, PartialEq, Debug)]
-pub struct SimpleTicket {
-    pub id: TicketId,
-    pub open_time: DateTime<Utc>,
-    pub unit: usize,
-    pub price: f64,
-    pub long_or_short: LongOrShort,
-}
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct OpenOrderFillTransaction {
