@@ -1,34 +1,32 @@
 use super::*;
 
-pub struct Sma<S, I> {
+pub struct Sma<I> {
     source: I,
     period: isize,
-    phantom: std::marker::PhantomData<S>,
 }
 
-impl<S, I> Sma<S, I> {
+impl<I> Sma<I> {
     pub fn new(source: I, period: usize) -> Self {
         Self {
             source: source,
             period: period as isize,
-            phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<S, V, I> Indicator<S, V> for Sma<S, I>
+impl<I> Indicator for Sma<I>
 where
-    S: Sequence,
-    I: Indicator<S, V>,
+    I: Indicator,
 {
+    type Seq = I::Seq;
+    type Val = I::Val;
 }
 
-impl<S, I> FuncIndicator<S, f64> for Sma<S, I>
+impl<I> FuncIndicator for Sma<I>
 where
-    S: Sequence,
-    I: FuncIndicator<S, f64>,
+    I: FuncIndicator<Val = f64>,
 {
-    fn value(&self, seq: S) -> MaybeValue<f64> {
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let mut sum = 0.0;
         let begin = seq + 1 - (self.period as i64);
         let mut tmp = seq;
@@ -70,10 +68,9 @@ mod ffi {
     use super::*;
     use crate::granularity::ffi::*;
     use crate::indicator::ffi::*;
-    use crate::indicator::*;
     use crate::time::ffi::*;
 
-    type IPtr<S, V> = Ptr<S, V, Sma<S, FuncIndicatorPtr<S, V>>>;
+    type IPtr<S, V> = Ptr<S, V, Sma<FuncIndicatorPtr<S, V>>>;
 
     // pub unsafe fn new<S, CS, V, CV>(
     //     source: *mut FuncIndicatorPtr<S, V>,

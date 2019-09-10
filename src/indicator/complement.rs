@@ -1,12 +1,10 @@
 use super::*;
 use crate::library::lru_cache::LRUCache;
-use crate::seq::*;
 use std::cell::RefCell;
 
 pub struct ComplementWithLastValue<S, V, I> {
     source: I,
     cache: RefCell<LRUCache<S, Option<V>>>,
-    phantom: std::marker::PhantomData<S>,
 }
 
 impl<S, V, I> ComplementWithLastValue<S, V, I>
@@ -18,7 +16,6 @@ where
         Self {
             source: source,
             cache: RefCell::new(LRUCache::new(capacity)),
-            phantom: std::marker::PhantomData,
         }
     }
 
@@ -31,21 +28,23 @@ where
     }
 }
 
-impl<S, V, I> Indicator<S, V> for ComplementWithLastValue<S, V, I>
+impl<S, V, I> Indicator for ComplementWithLastValue<S, V, I>
 where
     S: Sequence,
     V: Clone,
-    I: Indicator<S, Option<V>>,
+    I: Indicator<Seq = S, Val = Option<V>>,
 {
+    type Seq = I::Seq;
+    type Val = V;
 }
 
-impl<S, V, I> FuncIndicator<S, V> for ComplementWithLastValue<S, V, I>
+impl<S, V, I> FuncIndicator for ComplementWithLastValue<S, V, I>
 where
     S: Sequence,
     V: Clone,
-    I: FuncIndicator<S, Option<V>>,
+    I: FuncIndicator<Seq = S, Val = Option<V>>,
 {
-    fn value(&self, seq: S) -> MaybeValue<V> {
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let cache = self.get_cache(seq);
         match cache {
             Some(Some(v)) => MaybeValue::Value(v),

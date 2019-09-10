@@ -260,7 +260,7 @@ pub mod tests {
     // }
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
 #[macro_use]
 pub mod ffi {
     use super::*;
@@ -314,18 +314,27 @@ pub mod ffi {
     }
 
     #[derive(Clone)]
-    pub struct FuncIndicatorPtr<S, V>(pub Rc<RefCell<dyn FuncIndicator<S, V>>>);
+    pub struct FuncIndicatorPtr<S, V>(pub Rc<RefCell<dyn FuncIndicator<Seq = S, Val = V>>>);
 
-    impl<S, V> Indicator<S, V> for FuncIndicatorPtr<S, V> {}
+    impl<S, V> Indicator for FuncIndicatorPtr<S, V>
+    where
+        S: Sequence,
+    {
+        type Seq = S;
+        type Val = V;
+    }
 
-    impl<S, V> FuncIndicator<S, V> for FuncIndicatorPtr<S, V> {
-        fn value(&self, seq: S) -> MaybeValue<V> {
+    impl<S, V> FuncIndicator for FuncIndicatorPtr<S, V>
+    where
+        S: Sequence,
+    {
+        fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
             self.0.borrow().value(seq)
         }
     }
 
     impl<S, V> Deref for FuncIndicatorPtr<S, V> {
-        type Target = Rc<RefCell<dyn FuncIndicator<S, V>>>;
+        type Target = Rc<RefCell<dyn FuncIndicator<Seq = S, Val = V>>>;
         fn deref(&self) -> &Self::Target {
             &self.0
         }
@@ -424,6 +433,7 @@ pub mod ffi {
         CCrossState,
         indicator_value_tid_cross
     );
+
     // use crate::position::ffi::*;
     // use crate::position::*;
     // define_value_convert!(
@@ -494,16 +504,16 @@ pub mod ffi_iter {
 }
 
 // pub mod balance;
-// pub mod cached;
-// pub mod complement;
+pub mod cached;
+pub mod complement;
 // pub mod convert_granularity;
 // pub mod convert_seq;
 // pub mod count;
-// pub mod cross;
-// pub mod ordering;
-// pub mod slope;
-// pub mod sma;
-// pub mod storage;
+pub mod cross;
+pub mod ordering;
+pub mod slope;
+pub mod sma;
+pub mod storage;
 pub mod stream;
 // pub mod trade;
 // pub mod transaction;

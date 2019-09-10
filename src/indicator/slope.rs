@@ -1,41 +1,30 @@
 use super::*;
-use crate::seq::*;
 
-pub struct Slope<S, V, I> {
+pub struct Slope<I> {
     source: I,
-    p1: std::marker::PhantomData<S>,
-    p2: std::marker::PhantomData<V>,
 }
 
-impl<S, V, I> Slope<S, V, I>
-where
-    I: Indicator<S, V>,
-    V: std::ops::Sub,
-{
+impl<I> Slope<I> {
     pub fn new(source: I) -> Self {
-        Self {
-            source: source,
-            p1: std::marker::PhantomData,
-            p2: std::marker::PhantomData,
-        }
+        Self { source: source }
     }
 }
 
-impl<S, V, I> Indicator<S, V::Output> for Slope<S, V, I>
+impl<V, I> Indicator for Slope<I>
 where
-    S: Sequence,
-    I: Indicator<S, V>,
     V: std::ops::Sub,
+    I: Indicator<Val = V>,
 {
+    type Seq = I::Seq;
+    type Val = V::Output;
 }
 
-impl<S, V, I> FuncIndicator<S, V::Output> for Slope<S, V, I>
+impl<V, I> FuncIndicator for Slope<I>
 where
-    S: Sequence,
-    I: FuncIndicator<S, V>,
     V: std::ops::Sub,
+    I: FuncIndicator<Val = V>,
 {
-    fn value(&self, seq: S) -> MaybeValue<V::Output> {
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let cur = try_value!(self.source.value(seq));
         let prev = try_value!(self.source.value(seq - 1));
         MaybeValue::Value(cur - prev)
@@ -49,7 +38,7 @@ mod ffi {
     use crate::indicator::ffi::*;
     use crate::time::ffi::*;
 
-    type IPtr<S, V> = Ptr<S, V, Slope<S, V, FuncIndicatorPtr<S, V>>>;
+    type IPtr<S, V> = Ptr<S, V, Slope<FuncIndicatorPtr<S, V>>>;
 
     pub unsafe fn new<S, V>(source: *mut FuncIndicatorPtr<S, V>) -> IPtr<S, V>
     where

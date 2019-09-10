@@ -1,27 +1,20 @@
 use super::*;
 use crate::indicator::ordering::*;
-use crate::seq::*;
 
-pub struct Cross<S, I> {
+pub struct Cross<I> {
     source: I,
-    phantom: std::marker::PhantomData<S>,
 }
 
-impl<S, I> Cross<S, I> {
+impl<I> Cross<I> {
     pub fn from_ord(source: I) -> Self {
-        Self {
-            source: source,
-            phantom: std::marker::PhantomData,
-        }
+        Self { source: source }
     }
 }
 
-impl<S, V, I1, I2> Cross<S, Ordering<S, V, I1, I2>>
+impl<I1, I2> Cross<Ordering<I1, I2>>
 where
-    S: Sequence,
-    V: PartialOrd,
-    I1: Indicator<S, V>,
-    I2: Indicator<S, V>,
+    I1: Indicator,
+    I2: Indicator,
 {
     pub fn new(source_1: I1, source_2: I2) -> Self {
         let source = Ordering::new(source_1, source_2);
@@ -29,19 +22,20 @@ where
     }
 }
 
-impl<S, I> Indicator<S, CrossState> for Cross<S, I>
+impl<I> Indicator for Cross<I>
 where
-    S: Sequence,
-    I: Indicator<S, std::cmp::Ordering>,
+    // I: Indicator<Val = std::cmp::Ordering>,
+    I: Indicator,
 {
+    type Seq = I::Seq;
+    type Val = CrossState;
 }
 
-impl<S, I> FuncIndicator<S, CrossState> for Cross<S, I>
+impl<I> FuncIndicator for Cross<I>
 where
-    S: Sequence,
-    I: FuncIndicator<S, std::cmp::Ordering>,
+    I: FuncIndicator<Val = std::cmp::Ordering>,
 {
-    fn value(&self, seq: S) -> MaybeValue<CrossState> {
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         use std::cmp::Ordering::*;
         use CrossState::*;
 
@@ -101,11 +95,8 @@ pub mod ffi {
         }
     }
 
-    type IPtr<S, V> = Ptr<
-        S,
-        CrossState,
-        Cross<S, Ordering<S, V, FuncIndicatorPtr<S, V>, FuncIndicatorPtr<S, V>>>,
-    >;
+    type IPtr<S, V> =
+        Ptr<S, CrossState, Cross<Ordering<FuncIndicatorPtr<S, V>, FuncIndicatorPtr<S, V>>>>;
 
     pub unsafe fn new<S, V>(
         source_1: *mut FuncIndicatorPtr<S, V>,

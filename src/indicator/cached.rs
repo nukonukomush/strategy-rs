@@ -1,22 +1,16 @@
 use super::*;
 use crate::library::lru_cache::LRUCache as Cache;
-use crate::seq::*;
-use crate::time::*;
-use crate::*;
 use std::cell::RefCell;
 
-pub struct LRUCache<I>
-where
-    I: FuncIndicator,
-{
+pub struct LRUCache<S, V, I> {
     source: I,
-    cache: RefCell<Cache<I::Seq, I::Val>>,
+    cache: RefCell<Cache<S, V>>,
 }
 
-impl<I> LRUCache<I>
+impl<S, V, I> LRUCache<S, V, I>
 where
-    // V: Clone,
-    I: FuncIndicator,
+    S: Sequence,
+    V: Clone,
 {
     pub fn new(capacity: usize, source: I) -> Self {
         Self {
@@ -26,20 +20,22 @@ where
     }
 }
 
-// impl<I> Indicator for LRUCache<I>
-// where
-//     S: Sequence,
-//     V: Clone,
-//     I: Indicator,
-// {
-// }
-
-impl<I> FuncIndicator for LRUCache<I>
+impl<S, V, I> Indicator for LRUCache<S, V, I>
 where
-    // V: Clone,
-    I: FuncIndicator,
+    S: Sequence,
+    I: Indicator<Seq = S, Val = V>,
 {
-    fn value(&self, seq: I::Seq) -> MaybeValue<I::Val> {
+    type Seq = I::Seq;
+    type Val = I::Val;
+}
+
+impl<S, V, I> FuncIndicator for LRUCache<S, V, I>
+where
+    S: Sequence,
+    V: Clone,
+    I: FuncIndicator<Seq = S, Val = V>,
+{
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let maybe = self.cache.borrow_mut().get(&seq).map(|v| v.clone());
         match maybe {
             Some(v) => MaybeValue::Value(v),
@@ -54,12 +50,11 @@ where
     }
 }
 
-#[cfg(ffi)]
+// #[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::granularity::ffi::*;
     use crate::indicator::ffi::*;
-    use crate::indicator::*;
     use crate::time::ffi::*;
 
     type IPtr<S, V> = Ptr<S, V, LRUCache<S, V, FuncIndicatorPtr<S, V>>>;

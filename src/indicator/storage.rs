@@ -1,5 +1,4 @@
 use crate::seq::*;
-use crate::time::*;
 use crate::*;
 use std::collections::HashMap;
 
@@ -11,7 +10,6 @@ pub struct Storage<S, V> {
 
 impl<S, V> Storage<S, V>
 where
-    // S: Granularity + Eq + std::hash::Hash + Copy + Ord,
     S: Sequence,
 {
     pub fn new(offset: S) -> Self {
@@ -53,22 +51,18 @@ where
     }
 }
 
-impl<S, V> Indicator<S, Option<V>> for Storage<S, V>
+impl<S, V> Indicator for Storage<S, V>
 where
-    // V: Clone,
-    // S: Granularity + Eq + std::hash::Hash + Copy,
     S: Sequence,
 {
-    // fn granularity(&self) -> S {
-    //     self.begin.granularity()
-    // }
+    type Seq = S;
+    type Val = Option<V>;
 }
 
-impl<S, V> FuncIndicator<S, Option<V>> for Storage<S, V>
+impl<S, V> FuncIndicator for Storage<S, V>
 where
     S: Sequence,
     V: Clone,
-    // S: Granularity + Eq + std::hash::Hash + Copy + Ord,
 {
     fn value(&self, seq: S) -> MaybeValue<Option<V>> {
         if self.begin <= seq && seq < self.end {
@@ -147,78 +141,13 @@ mod hash_ffi {
 
     define_add!(IPtr<GTime<Var>, f64>, CTime, f64, storage_add_time_f64);
     define_add!(IPtr<TransactionId, f64>, i64, f64, storage_add_tid_f64);
-
-    // macro_rules! define_storage_methods {
-    //     ($t:ty, $new:ident, $destroy:ident, $add:ident) => {
-    //         #[no_mangle]
-    //         pub unsafe extern "C" fn $new(offset: CTime) -> IPtr<$t> {
-    //             let ptr = Rc::new(RefCell::new(Storage::new(offset.into())));
-    //             Ptr {
-    //                 b_ptr: Box::into_raw(Box::new(ptr.clone())),
-    //                 f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
-    //             }
-    //         }
-
-    //         #[no_mangle]
-    //         pub unsafe extern "C" fn $destroy(ptr: IPtr<$t>) {
-    //             destroy(ptr.b_ptr);
-    //             destroy(ptr.f_ptr);
-    //         }
-
-    //         #[no_mangle]
-    //         pub unsafe extern "C" fn $add(ptr: IPtr<$t>, seq: CTime, value: $t) {
-    //             let ptr = ptr.b_ptr;
-    //             if ptr.is_null() {
-    //                 return;
-    //             }
-
-    //             let ptr = &*ptr;
-    //             ptr.borrow_mut().add(seq.into(), value);
-    //         }
-    //     };
-    // }
-
-    // define_storage_methods!(f64, storage_new_f64, storage_destroy_f64, storage_add_f64);
-
-    // use crate::position::ffi::*;
-    // use crate::position::*;
-    // #[no_mangle]
-    // pub unsafe extern "C" fn hash_new_simpleposition(
-    //     granularity: VarGranularity,
-    // ) -> Ptr<SimplePosition> {
-    //     let ptr = Rc::new(RefCell::new(Storage::new(granularity)));
-    //     Ptr {
-    //         b_ptr: Box::into_raw(Box::new(ptr.clone())),
-    //         t_ptr: Box::into_raw(Box::new(IndicatorPtr(ptr))),
-    //     }
-    // }
-
-    // #[no_mangle]
-    // pub unsafe extern "C" fn hash_destroy_simpleposition(ptr: Ptr<SimplePosition>) {
-    //     destroy(ptr.b_ptr);
-    //     destroy(ptr.t_ptr);
-    // }
-
-    // #[no_mangle]
-    // pub unsafe extern "C" fn hash_set_simpleposition(
-    //     ptr: Ptr<SimplePosition>,
-    //     seq: CTime,
-    //     value: CSimplePosition,
-    // ) {
-    //     let ptr = ptr.b_ptr;
-    //     if ptr.is_null() {
-    //         return;
-    //     }
-
-    //     let ptr = &*ptr;
-    //     ptr.borrow_mut().insert(seq.into(), value.into());
-    // }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::granularity::*;
+    use crate::time::*;
     use MaybeValue::*;
 
     #[test]
