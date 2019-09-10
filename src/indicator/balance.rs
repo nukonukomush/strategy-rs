@@ -5,28 +5,27 @@ use crate::seq::*;
 use crate::transaction::*;
 use chrono::prelude::*;
 
-pub struct ProfitLoss<S, I> {
+pub struct ProfitLoss<I> {
     trade_histories: I,
-    phantom: std::marker::PhantomData<S>,
 }
 
-impl<S, I> ProfitLoss<S, I> {
+impl<I> ProfitLoss<I> {
     pub fn new(source: I) -> Self {
         Self {
             trade_histories: source,
-            phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<S, I> Indicator<S, f64> for ProfitLoss<S, I> where S: Sequence {}
+impl<I> Indicator for ProfitLoss<I> {
+    type Val = f64;
+}
 
-impl<S, I> FuncIndicator<S, f64> for ProfitLoss<S, I>
+impl<I> FuncIndicator for ProfitLoss<I>
 where
-    S: Sequence,
-    I: FuncIndicator<S, Option<Trade>>,
+    I: FuncIndicator<Val = Option<Trade>>,
 {
-    fn value(&self, seq: S) -> MaybeValue<f64> {
+    fn value(&self, seq: I::Seq) -> MaybeValue<Self::Val> {
         let pl = match try_value!(self.trade_histories.value(seq)) {
             Some(trade) => {
                 let distance = match trade.long_or_short {

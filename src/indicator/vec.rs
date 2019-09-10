@@ -3,18 +3,13 @@ use crate::time::*;
 use crate::*;
 
 pub struct VecIndicator<S, V> {
-    // granularity: S,
     offset: S,
     vec: Vec<V>,
 }
 
-impl<S, V> VecIndicator<S, V>
-where
-// S: Granularity + Copy,
-{
+impl<S, V> VecIndicator<S, V> {
     pub fn new(offset: S, source: Vec<V>) -> Self {
         Self {
-            // granularity: offset.granularity(),
             offset: offset,
             vec: source,
         }
@@ -25,23 +20,20 @@ where
     }
 }
 
-impl<S, V> Indicator<S, V> for VecIndicator<S, V>
-// where
-// V: Clone,
-// S: Granularity + Copy,
-{
-    // fn granularity(&self) -> S {
-    //     self.granularity
-    // }
-}
-
-impl<S, V> FuncIndicator<S, V> for VecIndicator<S, V>
+impl<S, V> Indicator for VecIndicator<S, V>
 where
-    V: Clone,
-    // S: Granularity + Copy,
     S: Sequence,
 {
-    fn value(&self, seq: S) -> MaybeValue<V> {
+    type Seq = S;
+    type Val = V;
+}
+
+impl<S, V> FuncIndicator for VecIndicator<S, V>
+where
+    V: Clone,
+    S: Sequence,
+{
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let i = seq.distance_from(&self.offset);
         if i >= 0 && i < (self.vec.len() as i64) {
             MaybeValue::Value(self.vec[i as usize].clone())
@@ -51,7 +43,7 @@ where
     }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::granularity::ffi::*;

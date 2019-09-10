@@ -87,28 +87,31 @@ where
     }
 }
 
-pub trait Indicator<S, V> {}
+pub trait Indicator {
+    type Seq: Sequence;
+    type Val;
+}
 
-pub trait FuncIndicator<S, V>: Indicator<S, V> {
-    fn value(&self, seq: S) -> MaybeValue<V>;
+pub trait FuncIndicator: Indicator {
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val>;
 
-    fn map<V2, F>(self, f: F) -> stream::Map<S, V, V2, Self, F>
+    fn map<V, F>(self, f: F) -> stream::Map<Self, F>
     where
         Self: Sized,
-        F: Fn(V) -> V2,
+        F: Fn(Self::Val) -> V,
     {
         stream::Map::new(self, f)
     }
 
-    fn zip<V2, I>(self, other: I) -> stream::Zip<S, V, V2, Self, I>
+    fn zip<I>(self, other: I) -> stream::Zip<Self, I>
     where
         Self: Sized,
-        I: FuncIndicator<S, V2>,
+        I: FuncIndicator,
     {
         stream::Zip::new(self, other)
     }
 
-    fn into_iter(self, offset: S) -> stream::FuncIter<S, Self>
+    fn into_iter(self, offset: Self::Seq) -> stream::FuncIter<Self::Seq, Self>
     where
         Self: Sized,
     {
@@ -123,41 +126,41 @@ pub trait FuncIndicator<S, V>: Indicator<S, V> {
     }
 }
 
-pub trait IterIndicator<S, V>: Indicator<S, V> {
-    fn next(&mut self) -> MaybeValue<V>;
+pub trait IterIndicator: Indicator {
+    fn next(&mut self) -> MaybeValue<Self::Val>;
 
-    fn offset(&self) -> S;
+    fn offset(&self) -> Self::Seq;
 
-    fn map<V2, F>(self, f: F) -> stream::Map<S, V, V2, Self, F>
+    fn map<V, F>(self, f: F) -> stream::Map<Self, F>
     where
         Self: Sized,
-        F: FnMut(V) -> V2,
+        F: FnMut(Self::Val) -> V,
     {
         stream::Map::new(self, f)
     }
 
-    fn zip<V2, I>(self, other: I) -> stream::Zip<S, V, V2, Self, I>
+    fn zip<I>(self, other: I) -> stream::Zip<Self, I>
     where
         Self: Sized,
-        I: IterIndicator<S, V2>,
+        I: IterIndicator,
     {
         stream::Zip::new(self, other)
     }
 
-    fn into_std(self) -> stream::StdIter<S, V, Self>
+    fn into_std(self) -> stream::StdIter<Self>
     where
         Self: Sized,
     {
         stream::StdIter::new(self)
     }
 
-    fn into_storage(self) -> stream::IterStorage<S, V, Self>
-    where
-        Self: Sized,
-        S: Sequence + std::hash::Hash + Copy,
-    {
-        stream::IterStorage::new(self)
-    }
+    // fn into_storage(self) -> stream::IterStorage<Self::Seq, Self::Val, Self>
+    // where
+    //     Self: Sized,
+    //     // Self::Seq: std::hash::Hash + Copy,
+    // {
+    //     stream::IterStorage::new(self)
+    // }
 }
 
 pub trait Provisional<S, V>
@@ -180,37 +183,43 @@ where
 // }
 //
 
-impl<S, V, I> Indicator<S, V> for RefCell<I>
+// impl<S, V, I> Indicator<S, V> for RefCell<I>
+// where
+//     S: Sequence,
+//     I: Indicator<S, V>,
+// {
+// }
+impl<I> Indicator for RefCell<I>
 where
-    S: Sequence,
-    I: Indicator<S, V>,
+    I: Indicator,
 {
+    type Seq = I::Seq;
+    type Val = I::Val;
 }
 
-impl<S, V, I> FuncIndicator<S, V> for RefCell<I>
+impl<I> FuncIndicator for RefCell<I>
 where
-    S: Sequence,
-    I: FuncIndicator<S, V>,
+    I: FuncIndicator,
 {
-    fn value(&self, seq: S) -> MaybeValue<V> {
+    fn value(&self, seq: I::Seq) -> MaybeValue<I::Val> {
         (*self.borrow()).value(seq)
     }
 }
 
 use std::ops::Deref;
-impl<S, V, I> Indicator<S, V> for Rc<I>
+impl<I> Indicator for Rc<I>
 where
-    S: Sequence,
-    I: Indicator<S, V>,
+    I: Indicator,
 {
+    type Seq = I::Seq;
+    type Val = I::Val;
 }
 
-impl<S, V, I> FuncIndicator<S, V> for Rc<I>
+impl<I> FuncIndicator for Rc<I>
 where
-    S: Sequence,
-    I: FuncIndicator<S, V>,
+    I: FuncIndicator,
 {
-    fn value(&self, seq: S) -> MaybeValue<V> {
+    fn value(&self, seq: I::Seq) -> MaybeValue<I::Val> {
         self.deref().value(seq)
     }
 }
@@ -251,7 +260,7 @@ pub mod tests {
     // }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 #[macro_use]
 pub mod ffi {
     use super::*;
@@ -484,19 +493,19 @@ pub mod ffi_iter {
     define_via_iter_methods!(f64, via_iter_new_f64, via_iter_destroy_f64);
 }
 
-pub mod cached;
-pub mod complement;
-pub mod convert_granularity;
-pub mod convert_seq;
-pub mod cross;
-pub mod ordering;
-pub mod slope;
-pub mod sma;
-pub mod storage;
+// pub mod balance;
+// pub mod cached;
+// pub mod complement;
+// pub mod convert_granularity;
+// pub mod convert_seq;
+// pub mod count;
+// pub mod cross;
+// pub mod ordering;
+// pub mod slope;
+// pub mod sma;
+// pub mod storage;
 pub mod stream;
+// pub mod trade;
+// pub mod transaction;
 pub mod vec;
 // pub mod trailing_stop;
-pub mod count;
-pub mod transaction;
-pub mod balance;
-pub mod trade;
