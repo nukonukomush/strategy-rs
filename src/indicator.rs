@@ -26,6 +26,13 @@ impl<V> MaybeValue<V> {
             MaybeValue::OutOfRange => MaybeValue::OutOfRange,
         }
     }
+
+    pub fn unwrap(self) -> V {
+        match self {
+            MaybeValue::Value(v) => v,
+            MaybeValue::OutOfRange => panic!("value is out of range"),
+        }
+    }
 }
 
 impl<V> Into<Option<V>> for MaybeValue<V> {
@@ -154,6 +161,13 @@ pub trait IterIndicator: Indicator {
         stream::StdIter::new(self)
     }
 
+    fn into_sync_ptr(self) -> Box<Self>
+    where
+        Self: Sized,
+    {
+        Box::new(self)
+    }
+
     // fn into_storage(self) -> stream::IterStorage<Self::Seq, Self::Val, Self>
     // where
     //     Self: Sized,
@@ -201,7 +215,7 @@ impl<I> FuncIndicator for RefCell<I>
 where
     I: FuncIndicator,
 {
-    fn value(&self, seq: I::Seq) -> MaybeValue<I::Val> {
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         (*self.borrow()).value(seq)
     }
 }
@@ -219,8 +233,38 @@ impl<I> FuncIndicator for Rc<I>
 where
     I: FuncIndicator,
 {
-    fn value(&self, seq: I::Seq) -> MaybeValue<I::Val> {
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         self.deref().value(seq)
+    }
+}
+
+impl<I> Indicator for Box<I>
+where
+    I: Indicator,
+{
+    type Seq = I::Seq;
+    type Val = I::Val;
+}
+
+impl<I> FuncIndicator for Box<I>
+where
+    I: FuncIndicator,
+{
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        self.deref().value(seq)
+    }
+}
+
+impl<I> IterIndicator for Box<I>
+where
+    I: IterIndicator,
+{
+    fn next(&mut self) -> MaybeValue<Self::Val> {
+        self.as_mut().next()
+    }
+
+    fn offset(&self) -> Self::Seq {
+        self.as_ref().offset()
     }
 }
 

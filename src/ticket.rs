@@ -1,9 +1,44 @@
 use crate::position::*;
+use crate::seq::*;
 use crate::transaction::*;
 use chrono::prelude::*;
+use std::ops::Add;
+use std::ops::Sub;
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
 pub struct TicketId(pub i64);
+
+impl Add<i64> for TicketId {
+    type Output = TicketId;
+    fn add(self, other: i64) -> Self::Output {
+        TicketId(self.0 + other)
+    }
+}
+
+impl Sub<i64> for TicketId {
+    type Output = TicketId;
+    fn sub(self, other: i64) -> Self::Output {
+        TicketId(self.0 - other)
+    }
+}
+
+impl Sequence for TicketId {
+    fn distance_from(&self, offset: &Self) -> i64 {
+        self.0 - offset.0
+    }
+}
+
+impl Into<i64> for TicketId {
+    fn into(self) -> i64 {
+        self.0
+    }
+}
+
+impl From<i64> for TicketId {
+    fn from(i: i64) -> Self {
+        TicketId(i)
+    }
+}
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct SimpleTicket {
