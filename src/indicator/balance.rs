@@ -1,9 +1,6 @@
 use super::trade::*;
 use super::*;
-use crate::indicator::*;
-use crate::seq::*;
 use crate::transaction::*;
-use chrono::prelude::*;
 
 pub struct ProfitLoss<I> {
     trade_histories: I,
@@ -17,7 +14,11 @@ impl<I> ProfitLoss<I> {
     }
 }
 
-impl<I> Indicator for ProfitLoss<I> {
+impl<I> Indicator for ProfitLoss<I>
+where
+    I: Indicator,
+{
+    type Seq = I::Seq;
     type Val = f64;
 }
 
@@ -25,7 +26,7 @@ impl<I> FuncIndicator for ProfitLoss<I>
 where
     I: FuncIndicator<Val = Option<Trade>>,
 {
-    fn value(&self, seq: I::Seq) -> MaybeValue<Self::Val> {
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let pl = match try_value!(self.trade_histories.value(seq)) {
             Some(trade) => {
                 let distance = match trade.long_or_short {
@@ -45,10 +46,9 @@ mod tests {
     use super::*;
     use crate::granularity::*;
     use crate::vec::*;
+    use approx::assert_relative_eq;
     use LongOrShort::*;
     use MaybeValue::*;
-
-    use approx::assert_relative_eq;
 
     #[test]
     fn test_pl() {
@@ -101,27 +101,3 @@ mod tests {
         );
     }
 }
-
-// pub struct Cumulate<S, V, I> {
-//     state: V,
-//     source: I,
-//     phantom: std::marker::PhantomData<S>,
-// }
-
-// impl<S, V, I> Cumulate<S, V, I> {
-//     pub fn new(source: I, initial_state: V) -> Self {
-//         Self {
-//             state: initial_state,
-//             source: ,
-//             phantom: std::marker::PhantomData,
-//         }
-//     }
-// }
-
-// impl<S> Indicator<S, f64> for Balance where S: Sequence {}
-
-// impl<S, V> IterIndicator<S, f64> for Balance
-// where
-//     S: Sequence,
-// {
-// }

@@ -15,21 +15,22 @@ impl<S, I> ConvertWithNone<S, I> {
     }
 }
 
-impl<S1, S2, V, I> Indicator<S2, Option<V>> for ConvertWithNone<S1, I>
+impl<S2, I> Indicator for ConvertWithNone<S2, I>
 where
-    S1: Sequence,
     S2: Sequence,
-    I: Indicator<S1, V>,
+    I: Indicator,
 {
+    type Seq = S2;
+    type Val = Option<I::Val>;
 }
 
-impl<G1, G2, V, I> FuncIndicator<Time<G2>, Option<V>> for ConvertWithNone<Time<G1>, I>
+impl<G1, G2, I> FuncIndicator for ConvertWithNone<Time<G2>, I>
 where
     G1: StaticGranularity,
     G2: StaticGranularity,
-    I: FuncIndicator<Time<G1>, V>,
+    I: FuncIndicator<Seq = Time<G1>>,
 {
-    fn value(&self, time: Time<G2>) -> MaybeValue<Option<V>> {
+    fn value(&self, time: Self::Seq) -> MaybeValue<Self::Val> {
         match time.try_into() {
             Ok(time) => self.source.value(time).map(|v| Some(v)),
             Err(_) => MaybeValue::Value(None),

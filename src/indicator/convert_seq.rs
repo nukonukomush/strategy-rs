@@ -1,82 +1,82 @@
 use super::*;
 
-pub struct Consume<S1, S2, V1, V2, I, F> {
+pub struct Consume<S2, I, F> {
     offset: S2,
     source: I,
     func: F,
-    p1: std::marker::PhantomData<S1>,
-    p2: std::marker::PhantomData<V1>,
-    p3: std::marker::PhantomData<V2>,
 }
 
-impl<S1, S2, V1, V2, I, F> Consume<S1, S2, V1, V2, I, F>
+impl<S1, S2, V1, V2, I, F> Consume<S2, I, F>
 where
     S1: Sequence,
     S2: Sequence,
-    I: IterIndicator<S1, V1>,
-    // F: FnMut(&mut I) -> MaybeValue<V2>,
-    F: FnMut(Internal<S1, V1, I>) -> MaybeValue<V2>,
+    I: IterIndicator<Seq = S1, Val = V1>,
+    F: FnMut(Internal<I>) -> MaybeValue<V2>,
 {
     pub fn new(offset: S2, source: I, func: F) -> Self {
         Self {
             offset: offset,
             source: source,
             func: func,
-            p1: std::marker::PhantomData,
-            p2: std::marker::PhantomData,
-            p3: std::marker::PhantomData,
         }
     }
 }
 
-impl<S1, S2, V1, V2, I, F> Indicator<S2, V2> for Consume<S1, S2, V1, V2, I, F> {}
-
-impl<S1, S2, V1, V2, I, F> IterIndicator<S2, V2> for Consume<S1, S2, V1, V2, I, F>
+impl<S1, S2, V1, V2, I, F> Indicator for Consume<S2, I, F>
 where
     S1: Sequence,
     S2: Sequence,
-    I: IterIndicator<S1, V1>,
-    // F: FnMut(&mut I) -> MaybeValue<V2>,
-    F: FnMut(Internal<S1, V1, I>) -> MaybeValue<V2>,
+    I: Indicator<Seq = S1, Val = V1>,
+    F: FnMut(Internal<I>) -> MaybeValue<V2>,
 {
-    fn next(&mut self) -> MaybeValue<V2> {
+    type Seq = S2;
+    type Val = V2;
+}
+
+impl<S1, S2, V1, V2, I, F> IterIndicator for Consume<S2, I, F>
+where
+    S1: Sequence,
+    S2: Sequence,
+    I: IterIndicator<Seq = S1, Val = V1>,
+    F: FnMut(Internal<I>) -> MaybeValue<V2>,
+{
+    fn next(&mut self) -> MaybeValue<Self::Val> {
         self.offset = self.offset + 1;
-        // (self.func)(&mut self.source)
         (self.func)(Internal::new(&mut self.source))
     }
 
-    fn offset(&self) -> S2 {
+    fn offset(&self) -> Self::Seq {
         self.offset
     }
 }
 
-pub struct Internal<'a, S, V, I> {
+pub struct Internal<'a, I> {
     source: &'a mut I,
-    p1: std::marker::PhantomData<S>,
-    p2: std::marker::PhantomData<V>,
 }
 
-impl<'a, S, V, I> Internal<'a, S, V, I> {
+impl<'a, I> Internal<'a, I> {
     pub fn new(source: &'a mut I) -> Self {
-        Self {
-            source: source,
-            p1: std::marker::PhantomData,
-            p2: std::marker::PhantomData,
-        }
+        Self { source: source }
     }
 }
 
-impl<'a, S, V, I> Indicator<S, V> for Internal<'a, S, V, I> {}
-impl<'a, S, V, I> IterIndicator<S, V> for Internal<'a, S, V, I>
+impl<'a, I> Indicator for Internal<'a, I>
 where
-    S: Sequence,
-    I: IterIndicator<S, V>,
+    I: Indicator,
 {
-    fn next(&mut self) -> MaybeValue<V> {
+    type Seq = I::Seq;
+    type Val = I::Val;
+}
+
+impl<'a, I> IterIndicator for Internal<'a, I>
+where
+    I: IterIndicator,
+{
+    fn next(&mut self) -> MaybeValue<Self::Val> {
         self.source.next()
     }
 
-    fn offset(&self) -> S {
+    fn offset(&self) -> Self::Seq {
         self.source.offset()
     }
 }
@@ -85,7 +85,6 @@ where
 mod tests {
     use super::*;
     use crate::granularity::*;
-    use crate::indicator::*;
     use crate::vec::*;
     use MaybeValue::*;
 

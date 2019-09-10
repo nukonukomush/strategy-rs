@@ -503,10 +503,10 @@ pub mod ffi_iter {
     define_via_iter_methods!(f64, via_iter_new_f64, via_iter_destroy_f64);
 }
 
-// pub mod balance;
+pub mod balance;
 pub mod cached;
 pub mod complement;
-// pub mod convert_granularity;
+pub mod convert_granularity;
 pub mod convert_seq;
 pub mod count;
 pub mod cross;
@@ -516,6 +516,6 @@ pub mod sma;
 pub mod storage;
 pub mod stream;
 pub mod trade;
-// pub mod transaction;
+pub mod transaction;
 pub mod vec;
 // pub mod trailing_stop;
