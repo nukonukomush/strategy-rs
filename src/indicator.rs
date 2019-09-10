@@ -507,15 +507,15 @@ pub mod ffi_iter {
 pub mod cached;
 pub mod complement;
 // pub mod convert_granularity;
-// pub mod convert_seq;
-// pub mod count;
+pub mod convert_seq;
+pub mod count;
 pub mod cross;
 pub mod ordering;
 pub mod slope;
 pub mod sma;
 pub mod storage;
 pub mod stream;
-// pub mod trade;
+pub mod trade;
 // pub mod transaction;
 pub mod vec;
 // pub mod trailing_stop;

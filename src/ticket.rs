@@ -68,13 +68,11 @@ mod tests {
     use crate::time::*;
     use crate::vec::*;
     use LongOrShort::*;
-    use MaybeValue::*;
-    use OpenOrClose::*;
 
     fn get_source(
         offset: TransactionId,
         time: Time<S5>,
-    ) -> impl FuncIndicator<TransactionId, SimpleTransaction> {
+    ) -> impl FuncIndicator<Seq = TransactionId, Val = SimpleTransaction> {
         VecIndicator::new(
             offset,
             vec![

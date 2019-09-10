@@ -1,7 +1,4 @@
 use super::*;
-use crate::indicator::*;
-use crate::seq::*;
-use crate::ticket::*;
 use crate::transaction::*;
 use chrono::prelude::*;
 
@@ -20,30 +17,29 @@ pub struct Trade {
     pub close_price: f64,
 }
 
-pub struct TradeHistories<S, T, I> {
+pub struct TradeHistories<I> {
     source: I,
-    p1: std::marker::PhantomData<S>,
-    p2: std::marker::PhantomData<T>,
 }
 
-impl<S, T, I> TradeHistories<S, T, I> {
+impl<I> TradeHistories<I> {
     pub fn new(source: I) -> Self {
-        Self {
-            source: source,
-            p1: std::marker::PhantomData,
-            p2: std::marker::PhantomData,
-        }
+        Self { source: source }
     }
 }
 
-impl<S, T, I> Indicator<S, Option<Trade>> for TradeHistories<S, T, I> where S: Sequence {}
-
-impl<I> FuncIndicator<TransactionId, Option<Trade>>
-    for TradeHistories<TransactionId, SimpleTransaction, I>
+impl<I> Indicator for TradeHistories<I>
 where
-    I: FuncIndicator<TransactionId, SimpleTransaction>,
+    I: Indicator<Seq = TransactionId>,
 {
-    fn value(&self, seq: TransactionId) -> MaybeValue<Option<Trade>> {
+    type Seq = I::Seq;
+    type Val = Option<Trade>;
+}
+
+impl<I> FuncIndicator for TradeHistories<I>
+where
+    I: FuncIndicator<Seq = TransactionId, Val = SimpleTransaction>,
+{
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         match try_value!(self.source.value(seq)) {
             SimpleTransaction::CloseOrderFill(close) => {
                 match try_value!(self.source.value(close.open_id)) {
@@ -92,10 +88,9 @@ where
 mod tests {
     use super::*;
     use crate::granularity::*;
+    use crate::ticket::*;
     use crate::vec::*;
     use LongOrShort::*;
-    use MaybeValue::*;
-    use OpenOrClose::*;
 
     #[test]
     fn test_trade_tid() {

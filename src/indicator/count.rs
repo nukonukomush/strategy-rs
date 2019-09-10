@@ -1,16 +1,13 @@
 use super::*;
-use crate::seq::*;
 use crate::library::lru_cache::LRUCache;
 use std::cell::RefCell;
 
-pub struct CountContinuousSameValues<S, V, I> {
+pub struct CountContinuousSameValues<S, I> {
     source: I,
     cache: RefCell<LRUCache<S, i32>>,
-    p1: std::marker::PhantomData<S>,
-    p2: std::marker::PhantomData<V>,
 }
 
-impl<S, V, I> CountContinuousSameValues<S, V, I>
+impl<S, I> CountContinuousSameValues<S, I>
 where
     S: Sequence,
 {
@@ -18,8 +15,6 @@ where
         Self {
             source: source,
             cache: RefCell::new(LRUCache::new(capacity)),
-            p1: std::marker::PhantomData,
-            p2: std::marker::PhantomData,
         }
     }
 
@@ -32,25 +27,23 @@ where
     }
 }
 
-impl<S, V, I> Indicator<S, i32> for CountContinuousSameValues<S, V, I>
+impl<S, I> Indicator for CountContinuousSameValues<S, I>
 where
-    // S: Granularity + Eq + std::hash::Hash + Copy + Debug,
-    S:Sequence,
-    I: Indicator<S, V>,
+    S: Sequence,
+    I: Indicator<Seq = S>,
 {
-    // fn granularity(&self) -> S {
-    //     self.source.granularity()
-    // }
+    type Seq = I::Seq;
+    type Val = i32;
 }
 
-use std::fmt::Debug;
-impl<S, V, I> FuncIndicator<S, i32> for CountContinuousSameValues<S, V, I>
+// use std::fmt::Debug;
+impl<S, V, I> FuncIndicator for CountContinuousSameValues<S, I>
 where
     S: Sequence,
     V: PartialEq,
-    I: FuncIndicator<S, V>,
+    I: FuncIndicator<Seq = S, Val = V>,
 {
-    fn value(&self, seq: S) -> MaybeValue<i32> {
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let cache = self.get_cache(seq);
         match cache {
             Some(count) => MaybeValue::Value(count),
@@ -77,9 +70,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::granularity::*;
     use crate::vec::*;
     use MaybeValue::*;
-    use crate::granularity::*;
 
     #[test]
     fn test_count() {
