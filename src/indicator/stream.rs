@@ -130,8 +130,8 @@ where
 pub struct IterZip<V1, V2, I1, I2> {
     source_1: I1,
     source_2: I2,
-    value_1: Option<V1>,
-    value_2: Option<V2>,
+    value_1: MaybeFixed<MaybeInRange<V1>>,
+    value_2: MaybeFixed<MaybeInRange<V2>>,
 }
 
 impl<V1, V2, I1, I2> IterZip<V1, V2, I1, I2> {
@@ -139,8 +139,8 @@ impl<V1, V2, I1, I2> IterZip<V1, V2, I1, I2> {
         Self {
             source_1: source_1,
             source_2: source_2,
-            value_1: None,
-            value_2: None,
+            value_1: NotFixed,
+            value_2: NotFixed,
         }
     }
 }
@@ -156,13 +156,23 @@ where
 
 impl<V1, V2, I1, I2> IterIndicator for IterZip<V1, V2, I1, I2>
 where
+    V1: Clone,
+    V2: Clone,
     I1: IterIndicator<Val = V1>,
     I2: IterIndicator<Seq = I1::Seq, Val = V2>,
 {
-    // FIXME: v1 => ok, v2 => ng のときにバグるので、v1 を持っておくようにする
+    // TODO: not use clone
     fn next(&mut self) -> MaybeValue<Self::Val> {
-        let v1 = try_value!(self.source_1.next());
-        let v2 = try_value!(self.source_2.next());
+        if self.value_1.is_not_fixed() {
+            self.value_1 = self.source_1.next();
+        }
+        if self.value_2.is_not_fixed() {
+            self.value_2 = self.source_2.next();
+        }
+        let v1 = try_value!(&self.value_1).clone();
+        let v2 = try_value!(&self.value_2).clone();
+        self.value_1 = NotFixed;
+        self.value_2 = NotFixed;
         Fixed(InRange((v1, v2)))
     }
 

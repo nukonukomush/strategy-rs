@@ -27,6 +27,20 @@ impl<V> MaybeFixed<V> {
             MaybeFixed::NotFixed => panic!("value is not fixed"),
         }
     }
+
+    pub fn is_fixed(&self) -> bool {
+        match self {
+            MaybeFixed::Fixed(_) => true,
+            MaybeFixed::NotFixed => false,
+        }
+    }
+
+    pub fn is_not_fixed(&self) -> bool {
+        match self {
+            MaybeFixed::Fixed(_) => false,
+            MaybeFixed::NotFixed => true,
+        }
+    }
 }
 
 macro_rules! try_fixed {
@@ -56,6 +70,20 @@ impl<V> MaybeInRange<V> {
         match self {
             MaybeInRange::InRange(v) => v,
             MaybeInRange::OutOfRange => panic!("value is out of range"),
+        }
+    }
+
+    pub fn is_in_range(&self) -> bool {
+        match self {
+            MaybeInRange::InRange(_) => true,
+            MaybeInRange::OutOfRange => false,
+        }
+    }
+
+    pub fn is_out_of_range(&self) -> bool {
+        match self {
+            MaybeInRange::InRange(_) => false,
+            MaybeInRange::OutOfRange => true,
         }
     }
 }
