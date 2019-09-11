@@ -5,13 +5,15 @@ appenders:
     kind: console
 
 root:
-  level: info
+  # level: info
+  level: warn
   appenders:
     - stdout
 
 loggers:
   strategy::strategy:
-    level: debug
+    # level: debug
+    level: info
 
-  strategy::indicator:
-    level: trace
+  # strategy::indicator:
+  #   level: trace

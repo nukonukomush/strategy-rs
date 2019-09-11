@@ -52,14 +52,20 @@ where
             Some(InRange(v)) => Fixed(InRange(v)),
             Some(OutOfRange) => Fixed(OutOfRange),
             None => {
-                let src_value = try_value!(self.source.value(seq));
-                let value = match src_value {
-                    Some(v) => Fixed(InRange(v)),
-                    None => self.value(seq - 1),
+                // let src_value = try_value!(self.source.value(seq));
+                // let value = match src_value {
+                //     Some(v) => Fixed(InRange(v)),
+                //     None => self.value(seq - 1),
+                // };
+                let value = match self.source.value(seq) {
+                    Fixed(InRange(Some(v))) => Fixed(InRange(v)),
+                    Fixed(InRange(None)) => self.value(seq - 1),
+                    Fixed(OutOfRange) => Fixed(OutOfRange),
+                    NotFixed => self.value(seq - 1),
                 };
                 match value.clone() {
                     Fixed(v) => self.set_cache(seq, v),
-                    NotFixed => (),
+                    NotFixed => panic!("value is not fixed"),
                 };
                 value
             }
@@ -148,7 +154,7 @@ mod tests {
             Fixed(InRange(3.0)),
             Fixed(InRange(3.0)),
             Fixed(InRange(4.0)),
-            NotFixed,
+            Fixed(InRange(4.0)),
         ];
 
         let cmpl = ComplementWithLastValue::new(storage, 10);
