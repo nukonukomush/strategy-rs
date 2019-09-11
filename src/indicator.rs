@@ -58,6 +58,15 @@ pub enum MaybeInRange<T> {
     OutOfRange,
 }
 
+macro_rules! try_in_range {
+    ($expr:expr) => {
+        match $expr {
+            MaybeInRange::InRange(v) => v,
+            MaybeInRange::OutOfRange => return MaybeInRange::OutOfRange,
+        }
+    };
+}
+
 impl<V> MaybeInRange<V> {
     pub fn map<T, F: FnOnce(V) -> T>(self, f: F) -> MaybeInRange<T> {
         match self {
@@ -86,15 +95,12 @@ impl<V> MaybeInRange<V> {
             MaybeInRange::OutOfRange => true,
         }
     }
-}
 
-macro_rules! try_in_range {
-    ($expr:expr) => {
-        match $expr {
-            MaybeInRange::InRange(v) => v,
-            MaybeInRange::OutOfRange => return MaybeInRange::OutOfRange,
-        }
-    };
+    pub fn zip<V2>(self, other: MaybeInRange<V2>) -> MaybeInRange<(V, V2)> {
+        let v1 = try_in_range!(self);
+        let v2 = try_in_range!(other);
+        MaybeInRange::InRange((v1, v2))
+    }
 }
 
 macro_rules! try_value {
@@ -274,7 +280,7 @@ where
 
 pub trait Indicator {
     type Seq: Sequence;
-    type Val;
+    type Val: std::fmt::Debug;
 }
 
 pub trait FuncIndicator: Indicator {

@@ -12,7 +12,7 @@ pub struct ComplementWithLastValue<S, V, I> {
 impl<S, V, I> ComplementWithLastValue<S, V, I>
 where
     S: Sequence,
-    V: Clone,
+    V: Clone + std::fmt::Debug,
 {
     pub fn new(source: I, capacity: usize) -> Self {
         Self {
@@ -33,7 +33,7 @@ where
 impl<S, V, I> Indicator for ComplementWithLastValue<S, V, I>
 where
     S: Sequence,
-    V: Clone,
+    V: Clone + std::fmt::Debug,
     I: Indicator<Seq = S, Val = Option<V>>,
 {
     type Seq = I::Seq;
@@ -43,7 +43,7 @@ where
 impl<S, V, I> FuncIndicator for ComplementWithLastValue<S, V, I>
 where
     S: Sequence,
-    V: Clone,
+    V: Clone + std::fmt::Debug,
     I: FuncIndicator<Seq = S, Val = Option<V>>,
 {
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {

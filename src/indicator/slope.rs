@@ -12,19 +12,21 @@ impl<I> Slope<I> {
     }
 }
 
-impl<V, I> Indicator for Slope<I>
+impl<V1, V2, I> Indicator for Slope<I>
 where
-    V: std::ops::Sub,
-    I: Indicator<Val = V>,
+    V1: std::ops::Sub<Output = V2> + std::fmt::Debug,
+    V2: std::fmt::Debug,
+    I: Indicator<Val = V1>,
 {
     type Seq = I::Seq;
-    type Val = V::Output;
+    type Val = V1::Output;
 }
 
-impl<V, I> FuncIndicator for Slope<I>
+impl<V1, V2, I> FuncIndicator for Slope<I>
 where
-    V: std::ops::Sub,
-    I: FuncIndicator<Val = V>,
+    V1: std::ops::Sub<Output = V2> + std::fmt::Debug,
+    V2: std::fmt::Debug,
+    I: FuncIndicator<Val = V1>,
 {
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let cur = try_value!(self.source.value(seq));

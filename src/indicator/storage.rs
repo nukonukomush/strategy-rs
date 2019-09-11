@@ -56,6 +56,7 @@ where
 impl<S, V> Indicator for Storage<S, V>
 where
     S: Sequence,
+    V: std::fmt::Debug,
 {
     type Seq = S;
     type Val = Option<V>;
@@ -64,7 +65,7 @@ where
 impl<S, V> FuncIndicator for Storage<S, V>
 where
     S: Sequence,
-    V: Clone,
+    V: Clone + std::fmt::Debug,
 {
     fn value(&self, seq: S) -> MaybeValue<Option<V>> {
         if seq < self.begin {

@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+use log::*;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
@@ -9,21 +10,21 @@ use strategy::strategy::simple::*;
 use strategy::time::*;
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("hello hogehoge");
+    log4rs::init_file("log4rs.yml", Default::default()).unwrap();
 
     let data = fs::read_to_string("./examples/data/EUR_USD_2019-01-01_2019-01-02.json")?;
     // println!("{}", data);
     let data: serde_json::Value = serde_json::from_str(data.as_str())?;
 
-    let v = get_value_from_data(
-        &data,
-        "S5",
-        "2019-01-01 22:30:00",
-        "EUR_USD",
-        "bid",
-        "close",
-    );
-    println!("{:?}", v);
+    // let v = get_value_from_data(
+    //     &data,
+    //     "S5",
+    //     "2019-01-01 22:30:00",
+    //     "EUR_USD",
+    //     "bid",
+    //     "close",
+    // );
+    // println!("{:?}", v);
 
     let start = "2019-01-01T22:00:00Z".parse::<DateTime<Utc>>().unwrap();
     // let st_start = "2019-01-01T23:00:00Z".parse::<DateTime<Utc>>().unwrap();
@@ -36,7 +37,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for time in start.range_to_end(end) {
         let dt: DateTime<Utc> = time.into();
-        println!("{:?}", dt);
+        info!("{:?}", dt);
 
         update_source(&mut strategy, &data, dt);
         strategy.on_tick(dt);

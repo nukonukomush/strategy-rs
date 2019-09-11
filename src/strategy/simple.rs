@@ -14,6 +14,7 @@ use crate::ticket::*;
 use crate::time::*;
 use crate::transaction::*;
 use chrono::prelude::*;
+use log::*;
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::rc::Rc;
@@ -61,7 +62,7 @@ impl SimpleSmaCrossStrategy {
                 if v.is_some() {
                     pos = v.unwrap();
                 }
-                println!("position: {:?}", pos);
+                // println!("position: {:?}", pos);
                 Fixed(InRange(pos))
             })
         };
@@ -105,7 +106,7 @@ impl SimpleSmaCrossStrategy {
     ) {
         match <Time<S5>>::try_from(time) {
             Ok(t) => {
-                println!("{:?},{:?},{:?}", mid_close, bid_close, ask_close);
+                // println!("{:?},{:?},{:?}", mid_close, bid_close, ask_close);
                 self.mid_close.borrow_mut().add(t, mid_close);
                 self.bid_close.borrow_mut().add(t, bid_close);
                 self.ask_close.borrow_mut().add(t, ask_close);
@@ -133,7 +134,7 @@ impl SimpleSmaCrossStrategy {
         };
 
         let dt: DateTime<Utc> = self.signal.offset().into();
-        println!("signal offset: {:?}", dt);
+        // println!("signal offset: {:?}", dt);
         let signal = self.signal.next();
         use LongOrShort::*;
         match signal {
@@ -240,8 +241,12 @@ impl SimpleSmaCrossStrategy {
                 }
                 _ => (),
             },
-            NotFixed => println!("signal is not fixed"),
-            Fixed(OutOfRange) => println!("signal is out of range"),
+            NotFixed => {
+                warn!("signal is not fixed");
+            }
+            Fixed(OutOfRange) => {
+                warn!("signal is out of range");
+            }
         };
     }
 }

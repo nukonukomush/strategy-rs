@@ -12,7 +12,7 @@ pub struct LRUCache<S, V, I> {
 impl<S, V, I> LRUCache<S, V, I>
 where
     S: Sequence,
-    V: Clone,
+    V: Clone + std::fmt::Debug,
 {
     pub fn new(capacity: usize, source: I) -> Self {
         Self {
@@ -25,6 +25,7 @@ where
 impl<S, V, I> Indicator for LRUCache<S, V, I>
 where
     S: Sequence,
+    V: std::fmt::Debug,
     I: Indicator<Seq = S, Val = V>,
 {
     type Seq = I::Seq;
@@ -34,7 +35,7 @@ where
 impl<S, V, I> FuncIndicator for LRUCache<S, V, I>
 where
     S: Sequence,
-    V: Clone,
+    V: Clone + std::fmt::Debug,
     I: FuncIndicator<Seq = S, Val = V>,
 {
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {

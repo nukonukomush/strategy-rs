@@ -24,6 +24,7 @@ impl<S, V> VecIndicator<S, V> {
 impl<S, V> Indicator for VecIndicator<S, V>
 where
     S: Sequence,
+    V: std::fmt::Debug,
 {
     type Seq = S;
     type Val = V;
@@ -31,7 +32,7 @@ where
 
 impl<S, V> FuncIndicator for VecIndicator<S, V>
 where
-    V: Clone,
+    V: Clone + std::fmt::Debug,
     S: Sequence,
 {
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {

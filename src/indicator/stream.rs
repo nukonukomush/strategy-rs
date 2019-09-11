@@ -1,8 +1,10 @@
 use super::*;
 use crate::seq::*;
 use crate::time::*;
+use log::*;
 use MaybeFixed::*;
 use MaybeInRange::*;
+// use std::fmt::Debug;
 
 pub struct Map<I, F> {
     source: I,
@@ -20,6 +22,7 @@ impl<I, F> Map<I, F> {
 
 impl<V, I, F> Indicator for Map<I, F>
 where
+    V: std::fmt::Debug,
     I: Indicator,
     F: FnMut(I::Val) -> V,
 {
@@ -29,6 +32,7 @@ where
 
 impl<V, I, F> FuncIndicator for Map<I, F>
 where
+    V: std::fmt::Debug,
     I: FuncIndicator,
     F: Fn(I::Val) -> V,
 {
@@ -39,6 +43,7 @@ where
 
 impl<V, I, F> IterIndicator for Map<I, F>
 where
+    V: std::fmt::Debug,
     I: IterIndicator,
     F: FnMut(I::Val) -> V,
 {
@@ -147,6 +152,8 @@ impl<V1, V2, I1, I2> IterZip<V1, V2, I1, I2> {
 
 impl<V1, V2, I1, I2> Indicator for IterZip<V1, V2, I1, I2>
 where
+    V1: std::fmt::Debug,
+    V2: std::fmt::Debug,
     I1: Indicator<Val = V1>,
     I2: Indicator<Seq = I1::Seq, Val = V2>,
 {
@@ -156,24 +163,46 @@ where
 
 impl<V1, V2, I1, I2> IterIndicator for IterZip<V1, V2, I1, I2>
 where
-    V1: Clone,
-    V2: Clone,
+    V1: Clone + std::fmt::Debug,
+    V2: Clone + std::fmt::Debug,
     I1: IterIndicator<Val = V1>,
     I2: IterIndicator<Seq = I1::Seq, Val = V2>,
 {
     // TODO: not use clone
     fn next(&mut self) -> MaybeValue<Self::Val> {
+        // trace!("[next start] offset: {:?}", self.offset());
         if self.value_1.is_not_fixed() {
             self.value_1 = self.source_1.next();
+            trace!("value_1 = {:?}", self.value_1);
         }
         if self.value_2.is_not_fixed() {
             self.value_2 = self.source_2.next();
+            trace!("value_2 = {:?}", self.value_2);
         }
-        let v1 = try_value!(&self.value_1).clone();
-        let v2 = try_value!(&self.value_2).clone();
-        self.value_1 = NotFixed;
-        self.value_2 = NotFixed;
-        Fixed(InRange((v1, v2)))
+        match (self.value_1.clone(), self.value_2.clone()) {
+            (Fixed(v1), Fixed(v2)) => {
+                self.value_1 = NotFixed;
+                self.value_2 = NotFixed;
+                Fixed(v1.zip(v2))
+            }
+            _ => NotFixed,
+        }
+        // if self.value_1.is_fixed() && self.value_2.is_fixed() {
+        //     self.value_1
+        //     self.value_1 = NotFixed;
+        //     self.value_2 = NotFixed;
+        // }
+        // let v1 = try_fixed!(&self.value_1).clone();
+        // let v2 = try_fixed!(&self.value_2).clone();
+        // self.value_1 = NotFixed;
+        // self.value_2 = NotFixed;
+        // let ret = Fixed(InRange((v1, v2)));
+        // debug!(
+        //     "return next value: value = {:?}, offset = {:?}",
+        //     &ret,
+        //     self.offset()
+        // );
+        // ret
     }
 
     fn offset(&self) -> Self::Seq {

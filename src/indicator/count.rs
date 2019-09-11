@@ -42,7 +42,7 @@ where
 impl<S, V, I> FuncIndicator for CountContinuousSameValues<S, I>
 where
     S: Sequence,
-    V: PartialEq,
+    V: PartialEq + std::fmt::Debug,
     I: FuncIndicator<Seq = S, Val = V>,
 {
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {

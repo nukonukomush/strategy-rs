@@ -12,6 +12,8 @@ impl<S1, S2, V1, V2, I, F> Consume<S2, I, F>
 where
     S1: Sequence,
     S2: Sequence,
+    V1: std::fmt::Debug,
+    V2: std::fmt::Debug,
     I: IterIndicator<Seq = S1, Val = V1>,
     F: FnMut(Internal<I>) -> MaybeValue<V2>,
 {
@@ -28,6 +30,8 @@ impl<S1, S2, V1, V2, I, F> Indicator for Consume<S2, I, F>
 where
     S1: Sequence,
     S2: Sequence,
+    V1: std::fmt::Debug,
+    V2: std::fmt::Debug,
     I: Indicator<Seq = S1, Val = V1>,
     F: FnMut(Internal<I>) -> MaybeValue<V2>,
 {
@@ -39,6 +43,8 @@ impl<S1, S2, V1, V2, I, F> IterIndicator for Consume<S2, I, F>
 where
     S1: Sequence,
     S2: Sequence,
+    V1: std::fmt::Debug,
+    V2: std::fmt::Debug,
     I: IterIndicator<Seq = S1, Val = V1>,
     F: FnMut(Internal<I>) -> MaybeValue<V2>,
 {

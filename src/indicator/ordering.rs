@@ -31,7 +31,7 @@ where
 
 impl<V, I1, I2> FuncIndicator for Ordering<I1, I2>
 where
-    V: PartialOrd,
+    V: PartialOrd + std::fmt::Debug,
     I1: FuncIndicator<Val = V>,
     I2: FuncIndicator<Seq = I1::Seq, Val = V>,
 {
