@@ -1,6 +1,8 @@
 use super::trade::*;
 use super::*;
 use crate::transaction::*;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct ProfitLoss<I> {
     trade_histories: I,
@@ -37,7 +39,7 @@ where
             }
             None => 0.0,
         };
-        MaybeValue::Value(pl)
+        Fixed(InRange(pl))
     }
 }
 
@@ -48,7 +50,6 @@ mod tests {
     use crate::vec::*;
     use approx::assert_relative_eq;
     use LongOrShort::*;
-    use MaybeValue::*;
 
     #[test]
     fn test_pl() {
@@ -77,7 +78,12 @@ mod tests {
                 }),
             ],
         );
-        let expect = vec![Value(0.0), Value(0.0), Value(26.6), Value(30.0)];
+        let expect = vec![
+            Fixed(InRange(0.0)),
+            Fixed(InRange(0.0)),
+            Fixed(InRange(26.6)),
+            Fixed(InRange(30.0)),
+        ];
         let pl = ProfitLoss::new(source);
 
         let result = (0..4).map(|i| pl.value(offset + i)).collect::<Vec<_>>();

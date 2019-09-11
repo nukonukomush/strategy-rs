@@ -1,6 +1,8 @@
 use super::*;
 use crate::library::lru_cache::LRUCache;
 use std::cell::RefCell;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct CountContinuousSameValues<S, I> {
     source: I,
@@ -46,11 +48,13 @@ where
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let cache = self.get_cache(seq);
         match cache {
-            Some(count) => MaybeValue::Value(count),
+            Some(count) => Fixed(InRange(count)),
             None => {
                 let value_current = self.source.value(seq);
-                if value_current == MaybeValue::OutOfRange {
-                    MaybeValue::OutOfRange
+                if value_current == NotFixed {
+                    NotFixed
+                } else if value_current == Fixed(OutOfRange) {
+                    Fixed(OutOfRange)
                 } else {
                     let value_prev = self.source.value(seq - 1);
                     let count = if value_prev == value_current {
@@ -60,8 +64,21 @@ where
                         1
                     };
                     self.set_cache(seq, count);
-                    MaybeValue::Value(count)
+                    Fixed(InRange(count))
                 }
+                // if value_current == MaybeValue::OutOfRange {
+                //     MaybeValue::OutOfRange
+                // } else {
+                //     let value_prev = self.source.value(seq - 1);
+                //     let count = if value_prev == value_current {
+                //         let count_prev = try_value!(self.value(seq - 1));
+                //         count_prev + 1
+                //     } else {
+                //         1
+                //     };
+                //     self.set_cache(seq, count);
+                //     MaybeValue::Value(count)
+                // }
             }
         }
     }
@@ -72,13 +89,19 @@ mod tests {
     use super::*;
     use crate::granularity::*;
     use crate::vec::*;
-    use MaybeValue::*;
 
     #[test]
     fn test_count() {
         let offset = Time::<S5>::new(0);
         let source = VecIndicator::new(offset, vec![1.0, 1.0, 1.0, 2.0, 3.0, 3.0]);
-        let expect = vec![Value(1), Value(2), Value(3), Value(1), Value(1), Value(2)];
+        let expect = vec![
+            Fixed(InRange(1)),
+            Fixed(InRange(2)),
+            Fixed(InRange(3)),
+            Fixed(InRange(1)),
+            Fixed(InRange(1)),
+            Fixed(InRange(2)),
+        ];
 
         let count = CountContinuousSameValues::new(source, 10);
         let result = (0..6).map(|i| count.value(offset + i)).collect::<Vec<_>>();

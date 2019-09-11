@@ -1,10 +1,12 @@
 use super::*;
 use crate::library::lru_cache::LRUCache;
 use std::cell::RefCell;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct ComplementWithLastValue<S, V, I> {
     source: I,
-    cache: RefCell<LRUCache<S, Option<V>>>,
+    cache: RefCell<LRUCache<S, MaybeInRange<V>>>,
 }
 
 impl<S, V, I> ComplementWithLastValue<S, V, I>
@@ -19,11 +21,11 @@ where
         }
     }
 
-    fn get_cache(&self, seq: S) -> Option<Option<V>> {
+    fn get_cache(&self, seq: S) -> Option<MaybeInRange<V>> {
         self.cache.borrow_mut().get(&seq).map(|v| v.clone())
     }
 
-    fn set_cache(&self, seq: S, value: Option<V>) {
+    fn set_cache(&self, seq: S, value: MaybeInRange<V>) {
         self.cache.borrow_mut().insert(seq, value);
     }
 }
@@ -47,17 +49,17 @@ where
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let cache = self.get_cache(seq);
         match cache {
-            Some(Some(v)) => MaybeValue::Value(v),
-            Some(None) => MaybeValue::OutOfRange,
+            Some(InRange(v)) => Fixed(InRange(v)),
+            Some(OutOfRange) => Fixed(OutOfRange),
             None => {
                 let src_value = try_value!(self.source.value(seq));
                 let value = match src_value {
-                    Some(v) => MaybeValue::Value(v),
+                    Some(v) => Fixed(InRange(v)),
                     None => self.value(seq - 1),
                 };
                 match value.clone() {
-                    MaybeValue::Value(v) => self.set_cache(seq, Some(v)),
-                    MaybeValue::OutOfRange => self.set_cache(seq, None),
+                    Fixed(v) => self.set_cache(seq, v),
+                    NotFixed => (),
                 };
                 value
             }
@@ -65,7 +67,7 @@ where
     }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 pub mod ffi {
     use super::*;
     use crate::granularity::ffi::*;
@@ -127,7 +129,6 @@ mod tests {
     use super::*;
     use crate::granularity::*;
     use crate::storage::*;
-    use MaybeValue::*;
 
     #[test]
     fn test_cmpl() {
@@ -138,16 +139,16 @@ mod tests {
         storage.add(offset + 5, 3.0);
         storage.add(offset + 8, 4.0);
         let expect = vec![
-            OutOfRange,
-            OutOfRange,
-            Value(1.0),
-            Value(2.0),
-            Value(2.0),
-            Value(3.0),
-            Value(3.0),
-            Value(3.0),
-            Value(4.0),
-            OutOfRange,
+            Fixed(OutOfRange),
+            Fixed(OutOfRange),
+            Fixed(InRange(1.0)),
+            Fixed(InRange(2.0)),
+            Fixed(InRange(2.0)),
+            Fixed(InRange(3.0)),
+            Fixed(InRange(3.0)),
+            Fixed(InRange(3.0)),
+            Fixed(InRange(4.0)),
+            NotFixed,
         ];
 
         let cmpl = ComplementWithLastValue::new(storage, 10);

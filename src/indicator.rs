@@ -3,57 +3,164 @@ use crate::time::*;
 use crate::*;
 use approx::*;
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::os::raw::*;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub enum MaybeValue<V> {
-    Value(V),
-    OutOfRange,
+pub enum MaybeFixed<T> {
+    Fixed(T),
+    NotFixed,
 }
 
-impl<V> Default for MaybeValue<V> {
-    #[inline]
-    fn default() -> MaybeValue<V> {
-        MaybeValue::OutOfRange
-    }
-}
-
-impl<V> MaybeValue<V> {
-    pub fn map<T, F: FnOnce(V) -> T>(self, f: F) -> MaybeValue<T> {
+impl<V> MaybeFixed<V> {
+    pub fn map<T, F: FnOnce(V) -> T>(self, f: F) -> MaybeFixed<T> {
         match self {
-            MaybeValue::Value(x) => MaybeValue::Value(f(x)),
-            MaybeValue::OutOfRange => MaybeValue::OutOfRange,
+            MaybeFixed::Fixed(x) => MaybeFixed::Fixed(f(x)),
+            MaybeFixed::NotFixed => MaybeFixed::NotFixed,
         }
     }
 
     pub fn unwrap(self) -> V {
         match self {
-            MaybeValue::Value(v) => v,
-            MaybeValue::OutOfRange => panic!("value is out of range"),
+            MaybeFixed::Fixed(v) => v,
+            MaybeFixed::NotFixed => panic!("value is not fixed"),
         }
     }
 }
 
-impl<V> Into<Option<V>> for MaybeValue<V> {
-    fn into(self) -> Option<V> {
+macro_rules! try_fixed {
+    ($expr:expr) => {
+        match $expr {
+            MaybeFixed::Fixed(v) => v,
+            MaybeFixed::NotFixed => return MaybeFixed::NotFixed,
+        }
+    };
+}
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MaybeInRange<T> {
+    InRange(T),
+    OutOfRange,
+}
+
+impl<V> MaybeInRange<V> {
+    pub fn map<T, F: FnOnce(V) -> T>(self, f: F) -> MaybeInRange<T> {
         match self {
-            MaybeValue::Value(x) => Some(x),
-            MaybeValue::OutOfRange => None,
+            MaybeInRange::InRange(x) => MaybeInRange::InRange(f(x)),
+            MaybeInRange::OutOfRange => MaybeInRange::OutOfRange,
         }
     }
+
+    pub fn unwrap(self) -> V {
+        match self {
+            MaybeInRange::InRange(v) => v,
+            MaybeInRange::OutOfRange => panic!("value is out of range"),
+        }
+    }
+}
+
+macro_rules! try_in_range {
+    ($expr:expr) => {
+        match $expr {
+            MaybeInRange::InRange(v) => v,
+            MaybeInRange::OutOfRange => return MaybeInRange::OutOfRange,
+        }
+    };
 }
 
 macro_rules! try_value {
     ($expr:expr) => {
         match $expr {
-            MaybeValue::Value(v) => v,
-            MaybeValue::OutOfRange => return MaybeValue::OutOfRange,
+            MaybeFixed::Fixed(MaybeInRange::InRange(v)) => v,
+            MaybeFixed::Fixed(MaybeInRange::OutOfRange) => {
+                return MaybeFixed::Fixed(MaybeInRange::OutOfRange)
+            }
+            MaybeFixed::NotFixed => return MaybeFixed::NotFixed,
         }
     };
 }
 
-impl<V> AbsDiffEq for MaybeValue<V>
+pub type MaybeValue<T> = MaybeFixed<MaybeInRange<T>>;
+
+// impl<V> Default for MaybeValue<V> {
+//     #[inline]
+//     fn default() -> MaybeValue<V> {
+//         MaybeValue::BeforeRange
+//     }
+// }
+
+// impl<V> MaybeValue<V> {
+//     pub fn map<T, F: FnOnce(V) -> T>(self, f: F) -> MaybeValue<T> {
+//         match self {
+//             MaybeValue::Value(x) => MaybeValue::Value(f(x)),
+//             MaybeValue::AfterRange => MaybeValue::AfterRange,
+//             MaybeValue::BeforeRange => MaybeValue::BeforeRange,
+//         }
+//     }
+
+//     pub fn unwrap(self) -> V {
+//         match self {
+//             MaybeValue::Value(v) => v,
+//             MaybeValue::AfterRange => panic!("value is after range"),
+//             MaybeValue::BeforeRange => panic!("value is before range"),
+//         }
+//     }
+
+//     pub fn is_value(&self) -> bool {
+//         match self {
+//             MaybeValue::Value(_) => true,
+//             _ => false,
+//         }
+//     }
+
+//     pub fn is_before_range(&self) -> bool {
+//         match self {
+//             MaybeValue::BeforeRange => true,
+//             _ => false,
+//         }
+//     }
+
+//     pub fn is_after_range(&self) -> bool {
+//         match self {
+//             MaybeValue::AfterRange => true,
+//             _ => false,
+//         }
+//     }
+
+//     // pub fn take(&mut self) -> V {
+//     //     match self {
+//     //         MaybeValue::Value(v) => {
+//     //             let v = v;
+//     //             *self =
+//     //         },
+//     //         MaybeValue::AfterRange => panic!("value is after range"),
+//     //         MaybeValue::BeforeRange => panic!("value is before range"),
+//     //     }
+//     // }
+// }
+
+// impl<V> Into<Option<V>> for MaybeValue<V> {
+//     fn into(self) -> Option<V> {
+//         match self {
+//             MaybeValue::Value(x) => Some(x),
+//             MaybeValue::AfterRange => None,
+//             MaybeValue::BeforeRange => None,
+//         }
+//     }
+// }
+
+// macro_rules! try_value {
+//     ($expr:expr) => {
+//         match $expr {
+//             MaybeValue::Value(v) => v,
+//             MaybeValue::AfterRange => return MaybeValue::AfterRange,
+//             MaybeValue::BeforeRange => return MaybeValue::BeforeRange,
+//         }
+//     };
+// }
+
+impl<V> AbsDiffEq for MaybeFixed<V>
 where
     V: AbsDiffEq,
 {
@@ -66,14 +173,14 @@ where
     #[inline]
     fn abs_diff_eq(&self, other: &Self, epsilon: V::Epsilon) -> bool {
         match (self, other) {
-            (MaybeValue::Value(v1), MaybeValue::Value(v2)) => V::abs_diff_eq(v1, v2, epsilon),
-            (MaybeValue::OutOfRange, MaybeValue::OutOfRange) => true,
+            (MaybeFixed::Fixed(v1), MaybeFixed::Fixed(v2)) => V::abs_diff_eq(v1, v2, epsilon),
+            (MaybeFixed::NotFixed, MaybeFixed::NotFixed) => true,
             _ => false,
         }
     }
 }
 
-impl<V> RelativeEq for MaybeValue<V>
+impl<V> RelativeEq for MaybeFixed<V>
 where
     V: RelativeEq,
 {
@@ -85,10 +192,53 @@ where
     #[inline]
     fn relative_eq(&self, other: &Self, epsilon: V::Epsilon, max_relative: V::Epsilon) -> bool {
         match (self, other) {
-            (MaybeValue::Value(v1), MaybeValue::Value(v2)) => {
+            (MaybeFixed::Fixed(v1), MaybeFixed::Fixed(v2)) => {
                 V::relative_eq(v1, v2, epsilon, max_relative)
             }
-            (MaybeValue::OutOfRange, MaybeValue::OutOfRange) => true,
+            (MaybeFixed::NotFixed, MaybeFixed::NotFixed) => true,
+            _ => false,
+        }
+    }
+}
+
+impl<V> AbsDiffEq for MaybeInRange<V>
+where
+    V: AbsDiffEq,
+{
+    type Epsilon = V::Epsilon;
+    #[inline]
+    fn default_epsilon() -> V::Epsilon {
+        V::default_epsilon()
+    }
+
+    #[inline]
+    fn abs_diff_eq(&self, other: &Self, epsilon: V::Epsilon) -> bool {
+        match (self, other) {
+            (MaybeInRange::InRange(v1), MaybeInRange::InRange(v2)) => {
+                V::abs_diff_eq(v1, v2, epsilon)
+            }
+            (MaybeInRange::OutOfRange, MaybeInRange::OutOfRange) => true,
+            _ => false,
+        }
+    }
+}
+
+impl<V> RelativeEq for MaybeInRange<V>
+where
+    V: RelativeEq,
+{
+    #[inline]
+    fn default_max_relative() -> V::Epsilon {
+        V::default_max_relative()
+    }
+
+    #[inline]
+    fn relative_eq(&self, other: &Self, epsilon: V::Epsilon, max_relative: V::Epsilon) -> bool {
+        match (self, other) {
+            (MaybeInRange::InRange(v1), MaybeInRange::InRange(v2)) => {
+                V::relative_eq(v1, v2, epsilon, max_relative)
+            }
+            (MaybeInRange::OutOfRange, MaybeInRange::OutOfRange) => true,
             _ => false,
         }
     }
@@ -110,12 +260,12 @@ pub trait FuncIndicator: Indicator {
         stream::Map::new(self, f)
     }
 
-    fn zip<I>(self, other: I) -> stream::Zip<Self, I>
+    fn zip<I>(self, other: I) -> stream::FuncZip<Self, I>
     where
         Self: Sized,
         I: FuncIndicator,
     {
-        stream::Zip::new(self, other)
+        stream::FuncZip::new(self, other)
     }
 
     fn into_iter(self, offset: Self::Seq) -> stream::FuncIter<Self::Seq, Self>
@@ -146,12 +296,12 @@ pub trait IterIndicator: Indicator {
         stream::Map::new(self, f)
     }
 
-    fn zip<I>(self, other: I) -> stream::Zip<Self, I>
+    fn zip<I>(self, other: I) -> stream::IterZip<Self::Val, I::Val, Self, I>
     where
         Self: Sized,
         I: IterIndicator,
     {
-        stream::Zip::new(self, other)
+        stream::IterZip::new(self, other)
     }
 
     fn into_std(self) -> stream::StdIter<Self>
@@ -220,7 +370,6 @@ where
     }
 }
 
-use std::ops::Deref;
 impl<I> Indicator for Rc<I>
 where
     I: Indicator,
@@ -304,7 +453,7 @@ pub mod tests {
     // }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 #[macro_use]
 pub mod ffi {
     use super::*;
@@ -316,6 +465,8 @@ pub mod ffi {
     #[repr(C)]
     pub struct CMaybeValue<T> {
         is_value: c_char,
+        is_before: c_char,
+        is_after: c_char,
         value: T,
     }
 
@@ -323,9 +474,20 @@ pub mod ffi {
     where
         T: Default,
     {
-        pub fn out_of_range() -> Self {
+        pub fn after_range() -> Self {
             Self {
                 is_value: 0,
+                is_before: 0,
+                is_after: 1,
+                value: Default::default(),
+            }
+        }
+
+        pub fn before_range() -> Self {
+            Self {
+                is_value: 0,
+                is_before: 1,
+                is_after: 0,
                 value: Default::default(),
             }
         }
@@ -333,6 +495,8 @@ pub mod ffi {
         pub fn value(value: T) -> Self {
             Self {
                 is_value: 1,
+                is_before: 0,
+                is_after: 0,
                 value: value,
             }
         }
@@ -340,7 +504,7 @@ pub mod ffi {
         pub fn from_option(value: Option<T>) -> Self {
             match value {
                 Some(value) => Self::value(value),
-                None => Self::out_of_range(),
+                None => Self::before_range(),
             }
         }
     }
@@ -352,7 +516,8 @@ pub mod ffi {
         fn from(v: MaybeValue<V>) -> Self {
             match v {
                 MaybeValue::Value(v) => CMaybeValue::value(v),
-                MaybeValue::OutOfRange => CMaybeValue::out_of_range(),
+                MaybeValue::AfterRange => CMaybeValue::after_range(),
+                MaybeValue::BeforeRange => CMaybeValue::before_range(),
             }
         }
     }
@@ -412,7 +577,8 @@ pub mod ffi {
         CV: From<V> + Default,
     {
         if ptr.is_null() {
-            return CMaybeValue::out_of_range();
+            panic!("pointer is null");
+            // return CMaybeValue::after_range();
         }
 
         let ptr = &*ptr;

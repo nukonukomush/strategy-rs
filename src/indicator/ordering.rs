@@ -1,4 +1,6 @@
 use super::*;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct Ordering<I1, I2> {
     source_1: I1,
@@ -37,6 +39,6 @@ where
         let v1 = try_value!(self.source_1.value(seq));
         let v2 = try_value!(self.source_2.value(seq));
         let ord = v1.partial_cmp(&v2).unwrap();
-        MaybeValue::Value(ord)
+        Fixed(InRange(ord))
     }
 }

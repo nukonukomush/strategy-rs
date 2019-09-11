@@ -17,6 +17,8 @@ use chrono::prelude::*;
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::rc::Rc;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct SimpleStrategyBase {}
 
@@ -60,7 +62,7 @@ impl SimpleSmaCrossStrategy {
                     pos = v.unwrap();
                 }
                 println!("position: {:?}", pos);
-                MaybeValue::Value(pos)
+                Fixed(InRange(pos))
             })
         };
 
@@ -135,7 +137,7 @@ impl SimpleSmaCrossStrategy {
         let signal = self.signal.next();
         use LongOrShort::*;
         match signal {
-            MaybeValue::Value(s) => match s {
+            Fixed(InRange(s)) => match s {
                 SimpleSignal::OpenLong => {
                     let t = SimpleTransaction::OpenOrderFill(OpenOrderFillTransaction {
                         id: self.next_tid(),
@@ -144,7 +146,7 @@ impl SimpleSmaCrossStrategy {
                             id: self.next_ticket_id(),
                             open_time: time,
                             unit: 100,
-                            price: self.ask_close.value(time_s5).unwrap().unwrap(),
+                            price: self.ask_close.value(time_s5).unwrap().unwrap().unwrap(),
                             long_or_short: Long,
                         },
                     });
@@ -158,7 +160,7 @@ impl SimpleSmaCrossStrategy {
                             id: self.next_ticket_id(),
                             open_time: time,
                             unit: 100,
-                            price: self.bid_close.value(time_s5).unwrap().unwrap(),
+                            price: self.bid_close.value(time_s5).unwrap().unwrap().unwrap(),
                             long_or_short: Short,
                         },
                     });
@@ -172,7 +174,7 @@ impl SimpleSmaCrossStrategy {
                         time: time,
                         ticket_id: self.single_ticket.borrow().ticket().unwrap().id,
                         unit: 100,
-                        price: self.bid_close.value(time_s5).unwrap().unwrap(),
+                        price: self.bid_close.value(time_s5).unwrap().unwrap().unwrap(),
                     });
                     self.transaction.borrow_mut().add(t);
                 }
@@ -184,7 +186,7 @@ impl SimpleSmaCrossStrategy {
                         time: time,
                         ticket_id: self.single_ticket.borrow().ticket().unwrap().id,
                         unit: 100,
-                        price: self.ask_close.value(time_s5).unwrap().unwrap(),
+                        price: self.ask_close.value(time_s5).unwrap().unwrap().unwrap(),
                     });
                     self.transaction.borrow_mut().add(t);
                 }
@@ -196,7 +198,7 @@ impl SimpleSmaCrossStrategy {
                         time: time,
                         ticket_id: self.single_ticket.borrow().ticket().unwrap().id,
                         unit: 100,
-                        price: self.bid_close.value(time_s5).unwrap().unwrap(),
+                        price: self.bid_close.value(time_s5).unwrap().unwrap().unwrap(),
                     });
                     self.transaction.borrow_mut().add(t);
                     let t = SimpleTransaction::OpenOrderFill(OpenOrderFillTransaction {
@@ -206,7 +208,7 @@ impl SimpleSmaCrossStrategy {
                             id: self.next_ticket_id(),
                             open_time: time,
                             unit: 100,
-                            price: self.bid_close.value(time_s5).unwrap().unwrap(),
+                            price: self.bid_close.value(time_s5).unwrap().unwrap().unwrap(),
                             long_or_short: Short,
                         },
                     });
@@ -220,7 +222,7 @@ impl SimpleSmaCrossStrategy {
                         time: time,
                         ticket_id: self.single_ticket.borrow().ticket().unwrap().id,
                         unit: 100,
-                        price: self.ask_close.value(time_s5).unwrap().unwrap(),
+                        price: self.ask_close.value(time_s5).unwrap().unwrap().unwrap(),
                     });
                     self.transaction.borrow_mut().add(t);
                     let t = SimpleTransaction::OpenOrderFill(OpenOrderFillTransaction {
@@ -230,7 +232,7 @@ impl SimpleSmaCrossStrategy {
                             id: self.next_ticket_id(),
                             open_time: time,
                             unit: 100,
-                            price: self.ask_close.value(time_s5).unwrap().unwrap(),
+                            price: self.ask_close.value(time_s5).unwrap().unwrap().unwrap(),
                             long_or_short: Long,
                         },
                     });
@@ -238,7 +240,8 @@ impl SimpleSmaCrossStrategy {
                 }
                 _ => (),
             },
-            MaybeValue::OutOfRange => println!("signal is out of range"),
+            NotFixed => println!("signal is not fixed"),
+            Fixed(OutOfRange) => println!("signal is out of range"),
         };
     }
 }

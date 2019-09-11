@@ -1,5 +1,7 @@
 use super::*;
 use crate::indicator::ordering::*;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct Cross<I> {
     source: I,
@@ -24,7 +26,6 @@ where
 
 impl<I> Indicator for Cross<I>
 where
-    // I: Indicator<Val = std::cmp::Ordering>,
     I: Indicator,
 {
     type Seq = I::Seq;
@@ -43,18 +44,18 @@ where
         let current_ord = try_value!(self.source.value(seq));
         if current_ord != Equal {
             let mut i = seq - 1;
-            while let MaybeValue::Value(past_ord) = self.source.value(i) {
+            while let Fixed(InRange(past_ord)) = self.source.value(i) {
                 match (past_ord, current_ord) {
-                    (Greater, Less) => return MaybeValue::Value(GtToLt),
-                    (Less, Greater) => return MaybeValue::Value(LtToGt),
-                    (Greater, Greater) => return MaybeValue::Value(NotCrossed),
-                    (Less, Less) => return MaybeValue::Value(NotCrossed),
+                    (Greater, Less) => return Fixed(InRange(GtToLt)),
+                    (Less, Greater) => return Fixed(InRange(LtToGt)),
+                    (Greater, Greater) => return Fixed(InRange(NotCrossed)),
+                    (Less, Less) => return Fixed(InRange(NotCrossed)),
                     _ => (),
                 }
                 i = i - 1;
             }
         }
-        MaybeValue::Value(NotCrossed)
+        Fixed(InRange(NotCrossed))
     }
 }
 
@@ -65,7 +66,7 @@ pub enum CrossState {
     GtToLt,
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 pub mod ffi {
     use super::*;
     use crate::granularity::ffi::*;
@@ -139,7 +140,6 @@ mod tests {
     use super::*;
     use crate::granularity::*;
     use crate::vec::*;
-    use MaybeValue::*;
 
     #[test]
     fn test_cross() {
@@ -152,7 +152,7 @@ mod tests {
         let source_2 = vec![1.0; 10];
         let expected = vec![not, not, ltg, not, gtl, not, not, ltg, not, gtl]
             .into_iter()
-            .map(|v| Value(v))
+            .map(|v| Fixed(InRange(v)))
             .collect::<Vec<_>>();
         let source_1 = VecIndicator::new(offset, source_1);
         let source_2 = VecIndicator::new(offset, source_2);

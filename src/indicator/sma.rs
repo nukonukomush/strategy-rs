@@ -1,4 +1,6 @@
 use super::*;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct Sma<I> {
     source: I,
@@ -35,35 +37,11 @@ where
             sum += v;
             tmp = tmp - 1;
         }
-        MaybeValue::Value(sum / self.period as f64)
+        Fixed(InRange(sum / self.period as f64))
     }
 }
-// impl<S, I> Indicator<S, f64> for Sma<S, I>
-// where
-//     S: Sequence,
-//     I: Indicator<S, f64>,
-// {
-// }
 
-// impl<S, I> FuncIndicator<S, f64> for Sma<S, I>
-// where
-//     S: Sequence,
-//     I: FuncIndicator<S, f64>,
-// {
-//     fn value(&self, seq: S) -> MaybeValue<f64> {
-//         let mut sum = 0.0;
-//         let begin = seq + 1 - (self.period as i64);
-//         let mut tmp = seq;
-//         while tmp >= begin {
-//             let v = try_value!(self.source.value(tmp));
-//             sum += v;
-//             tmp = tmp - 1;
-//         }
-//         MaybeValue::Value(sum / self.period as f64)
-//     }
-// }
-
-// #[cfg(ffi)]
+#[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::granularity::ffi::*;
@@ -120,13 +98,18 @@ mod tests {
     use crate::granularity::*;
     use crate::indicator::cached::*;
     use crate::vec::*;
-    use MaybeValue::*;
 
     #[test]
     fn test_sma() {
         let offset = Time::<S5>::new(0);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let expect = vec![OutOfRange, OutOfRange, Value(2.0), Value(3.0), Value(4.0)];
+        let expect = vec![
+            Fixed(OutOfRange),
+            Fixed(OutOfRange),
+            Fixed(InRange(2.0)),
+            Fixed(InRange(3.0)),
+            Fixed(InRange(4.0)),
+        ];
         // let sma_pre = Sma::new(source, 3);
         // let sma = Cached::new(sma_pre);
         let sma_pre = Sma::new(VecIndicator::new(offset, source.clone()), 3);

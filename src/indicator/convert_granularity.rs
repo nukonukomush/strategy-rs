@@ -1,5 +1,7 @@
 use super::*;
 use crate::granularity::*;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct ConvertWithNone<S, I> {
     source: I,
@@ -32,8 +34,8 @@ where
 {
     fn value(&self, time: Self::Seq) -> MaybeValue<Self::Val> {
         match time.try_into() {
-            Ok(time) => self.source.value(time).map(|v| Some(v)),
-            Err(_) => MaybeValue::Value(None),
+            Ok(time) => self.source.value(time).map(|v| v.map(|v| Some(v))),
+            Err(_) => Fixed(InRange(None)),
         }
     }
 }
@@ -67,14 +69,17 @@ where
 mod tests {
     use super::*;
     use crate::vec::*;
-    use MaybeValue::*;
 
     #[test]
     fn test_conv_s5_to_s10() {
         let offset_s5 = Time::<S5>::new(0);
         let offset_s10 = Time::<S10>::new(0);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0_f64];
-        let expect = vec![Value(Some(1.0)), Value(Some(3.0)), Value(Some(5.0))];
+        let expect = vec![
+            Fixed(InRange(Some(1.0))),
+            Fixed(InRange(Some(3.0))),
+            Fixed(InRange(Some(5.0))),
+        ];
         let conv = ConvertWithNone::new(VecIndicator::new(offset_s5, source.clone()));
 
         let result = (0..3)
@@ -89,15 +94,15 @@ mod tests {
         let offset_s10 = Time::<S10>::new(0);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0_f64];
         let expect = vec![
-            Value(Some(1.0)),
-            Value(None),
-            Value(Some(2.0)),
-            Value(None),
-            Value(Some(3.0)),
-            Value(None),
-            Value(Some(4.0)),
-            Value(None),
-            Value(Some(5.0)),
+            Fixed(InRange(Some(1.0))),
+            Fixed(InRange(None)),
+            Fixed(InRange(Some(2.0))),
+            Fixed(InRange(None)),
+            Fixed(InRange(Some(3.0))),
+            Fixed(InRange(None)),
+            Fixed(InRange(Some(4.0))),
+            Fixed(InRange(None)),
+            Fixed(InRange(Some(5.0))),
         ];
         let conv = ConvertWithNone::new(VecIndicator::new(offset_s10, source.clone()));
 

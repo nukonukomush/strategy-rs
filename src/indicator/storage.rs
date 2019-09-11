@@ -1,6 +1,8 @@
 use crate::seq::*;
 use crate::*;
 use std::collections::HashMap;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct Storage<S, V> {
     begin: S,
@@ -65,18 +67,21 @@ where
     V: Clone,
 {
     fn value(&self, seq: S) -> MaybeValue<Option<V>> {
-        if self.begin <= seq && seq < self.end {
-            match self.map.get(&seq) {
-                Some(v) => MaybeValue::Value(Some(v.clone())),
-                None => MaybeValue::Value(None),
-            }
+        if seq < self.begin {
+            Fixed(OutOfRange)
+        } else if self.end <= seq {
+            NotFixed
         } else {
-            MaybeValue::OutOfRange
+            let v = match self.map.get(&seq) {
+                Some(v) => Some(v.clone()),
+                None => None,
+            };
+            Fixed(InRange(v))
         }
     }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 mod hash_ffi {
     use super::*;
     use crate::granularity::ffi::*;
@@ -148,18 +153,17 @@ mod tests {
     use super::*;
     use crate::granularity::*;
     use crate::time::*;
-    use MaybeValue::*;
 
     #[test]
     fn test_from_vec() {
         let offset = Time::<S5>::new(0);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let expect = vec![
-            Value(Some(1.0)),
-            Value(Some(2.0)),
-            Value(Some(3.0)),
-            Value(Some(4.0)),
-            Value(Some(5.0)),
+            Fixed(InRange(Some(1.0))),
+            Fixed(InRange(Some(2.0))),
+            Fixed(InRange(Some(3.0))),
+            Fixed(InRange(Some(4.0))),
+            Fixed(InRange(Some(5.0))),
         ];
 
         let storage = Storage::from_vec(offset, source.clone());
@@ -173,11 +177,11 @@ mod tests {
     fn test_add_ok() {
         let offset = Time::<S5>::new(0);
         let expect = vec![
-            Value(Some(1.0)),
-            Value(Some(2.0)),
-            Value(None),
-            Value(Some(3.0)),
-            OutOfRange,
+            Fixed(InRange(Some(1.0))),
+            Fixed(InRange(Some(2.0))),
+            Fixed(InRange(None)),
+            Fixed(InRange(Some(3.0))),
+            NotFixed,
         ];
 
         let mut storage = Storage::new(offset);

@@ -1,6 +1,7 @@
 use crate::seq::*;
-use crate::time::*;
 use crate::*;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct VecIndicator<S, V> {
     offset: S,
@@ -35,15 +36,17 @@ where
 {
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let i = seq.distance_from(&self.offset);
-        if i >= 0 && i < (self.vec.len() as i64) {
-            MaybeValue::Value(self.vec[i as usize].clone())
+        if i < 0 {
+            Fixed(OutOfRange)
+        } else if (self.vec.len() as i64) <= i {
+            NotFixed
         } else {
-            MaybeValue::OutOfRange
+            Fixed(InRange(self.vec[i as usize].clone()))
         }
     }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::granularity::ffi::*;
@@ -119,13 +122,19 @@ mod ffi {
 mod tests {
     use super::*;
     use crate::granularity::*;
-    use MaybeValue::*;
+    use crate::time::*;
 
     #[test]
     fn test_vec() {
         let offset = Time::<S5>::new(0);
         let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let expect = vec![Value(1.0), Value(2.0), Value(3.0), Value(4.0), Value(5.0)];
+        let expect = vec![
+            Fixed(InRange(1.0)),
+            Fixed(InRange(2.0)),
+            Fixed(InRange(3.0)),
+            Fixed(InRange(4.0)),
+            Fixed(InRange(5.0)),
+        ];
 
         let vec = VecIndicator::new(offset, source.clone());
         let result = (0..5).map(|i| vec.value(offset + i)).collect::<Vec<_>>();

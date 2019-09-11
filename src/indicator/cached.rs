@@ -1,10 +1,12 @@
 use super::*;
 use crate::library::lru_cache::LRUCache as Cache;
 use std::cell::RefCell;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct LRUCache<S, V, I> {
     source: I,
-    cache: RefCell<Cache<S, V>>,
+    cache: RefCell<Cache<S, MaybeInRange<V>>>,
 }
 
 impl<S, V, I> LRUCache<S, V, I>
@@ -38,19 +40,19 @@ where
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let maybe = self.cache.borrow_mut().get(&seq).map(|v| v.clone());
         match maybe {
-            Some(v) => MaybeValue::Value(v),
+            Some(v) => Fixed(v),
             None => match self.source.value(seq) {
-                MaybeValue::Value(v) => {
+                Fixed(v) => {
                     self.cache.borrow_mut().insert(seq, v.clone());
-                    MaybeValue::Value(v)
+                    Fixed(v)
                 }
-                MaybeValue::OutOfRange => MaybeValue::OutOfRange,
+                NotFixed => NotFixed,
             },
         }
     }
 }
 
-// #[cfg(ffi)]
+#[cfg(ffi)]
 mod ffi {
     use super::*;
     use crate::granularity::ffi::*;

@@ -1,4 +1,6 @@
 use super::*;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct Consume<S2, I, F> {
     offset: S2,
@@ -86,7 +88,6 @@ mod tests {
     use super::*;
     use crate::granularity::*;
     use crate::vec::*;
-    use MaybeValue::*;
 
     #[test]
     fn test_map() {
@@ -111,16 +112,16 @@ mod tests {
         let source = VecIndicator::new(offset_1, source).into_sync_ptr();
         let mut consume = Consume::new(offset_2, source.clone().into_iter(offset_1), |i| {
             let v = i.into_std().fold(0.0, |acc, v| acc + v);
-            MaybeValue::Value(v)
+            Fixed(InRange(v))
         });
 
-        assert_eq!(consume.next(), Value(6.0));
+        assert_eq!(consume.next(), Fixed(InRange(6.0)));
         source.borrow_mut().add(4.0);
-        assert_eq!(consume.next(), Value(4.0));
+        assert_eq!(consume.next(), Fixed(InRange(4.0)));
         source.borrow_mut().add(5.0);
         source.borrow_mut().add(2.0);
-        assert_eq!(consume.next(), Value(7.0));
-        assert_eq!(consume.next(), Value(0.0));
+        assert_eq!(consume.next(), Fixed(InRange(7.0)));
+        assert_eq!(consume.next(), Fixed(InRange(0.0)));
     }
 
 }

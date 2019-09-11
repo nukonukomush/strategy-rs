@@ -1,6 +1,8 @@
 use super::*;
 use crate::seq::*;
 use crate::time::*;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 pub struct Map<I, F> {
     source: I,
@@ -31,7 +33,7 @@ where
     F: Fn(I::Val) -> V,
 {
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
-        self.source.value(seq).map(|v| (self.func)(v))
+        self.source.value(seq).map(|v| v.map(|v| (self.func)(v)))
     }
 }
 
@@ -41,7 +43,7 @@ where
     F: FnMut(I::Val) -> V,
 {
     fn next(&mut self) -> MaybeValue<Self::Val> {
-        self.source.next().map(|v| (self.func)(v))
+        self.source.next().map(|v| v.map(|v| (self.func)(v)))
     }
 
     fn offset(&self) -> Self::Seq {
@@ -90,12 +92,12 @@ where
 //     }
 // }
 
-pub struct Zip<I1, I2> {
+pub struct FuncZip<I1, I2> {
     source_1: I1,
     source_2: I2,
 }
 
-impl<I1, I2> Zip<I1, I2> {
+impl<I1, I2> FuncZip<I1, I2> {
     pub fn new(source_1: I1, source_2: I2) -> Self {
         Self {
             source_1: source_1,
@@ -104,7 +106,7 @@ impl<I1, I2> Zip<I1, I2> {
     }
 }
 
-impl<I1, I2> Indicator for Zip<I1, I2>
+impl<I1, I2> Indicator for FuncZip<I1, I2>
 where
     I1: Indicator,
     I2: Indicator<Seq = I1::Seq>,
@@ -113,7 +115,7 @@ where
     type Val = (I1::Val, I2::Val);
 }
 
-impl<I1, I2> FuncIndicator for Zip<I1, I2>
+impl<I1, I2> FuncIndicator for FuncZip<I1, I2>
 where
     I1: FuncIndicator,
     I2: FuncIndicator<Seq = I1::Seq>,
@@ -121,20 +123,47 @@ where
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let v1 = try_value!(self.source_1.value(seq));
         let v2 = try_value!(self.source_2.value(seq));
-        MaybeValue::Value((v1, v2))
+        Fixed(InRange((v1, v2)))
     }
 }
 
-impl<I1, I2> IterIndicator for Zip<I1, I2>
+pub struct IterZip<V1, V2, I1, I2> {
+    source_1: I1,
+    source_2: I2,
+    value_1: Option<V1>,
+    value_2: Option<V2>,
+}
+
+impl<V1, V2, I1, I2> IterZip<V1, V2, I1, I2> {
+    pub fn new(source_1: I1, source_2: I2) -> Self {
+        Self {
+            source_1: source_1,
+            source_2: source_2,
+            value_1: None,
+            value_2: None,
+        }
+    }
+}
+
+impl<V1, V2, I1, I2> Indicator for IterZip<V1, V2, I1, I2>
 where
-    I1: IterIndicator,
-    I2: IterIndicator<Seq = I1::Seq>,
+    I1: Indicator<Val = V1>,
+    I2: Indicator<Seq = I1::Seq, Val = V2>,
+{
+    type Seq = I1::Seq;
+    type Val = (I1::Val, I2::Val);
+}
+
+impl<V1, V2, I1, I2> IterIndicator for IterZip<V1, V2, I1, I2>
+where
+    I1: IterIndicator<Val = V1>,
+    I2: IterIndicator<Seq = I1::Seq, Val = V2>,
 {
     // FIXME: v1 => ok, v2 => ng のときにバグるので、v1 を持っておくようにする
     fn next(&mut self) -> MaybeValue<Self::Val> {
         let v1 = try_value!(self.source_1.next());
         let v2 = try_value!(self.source_2.next());
-        MaybeValue::Value((v1, v2))
+        Fixed(InRange((v1, v2)))
     }
 
     fn offset(&self) -> Self::Seq {
@@ -158,7 +187,10 @@ where
 {
     type Item = I::Val;
     fn next(&mut self) -> Option<I::Val> {
-        self.source.next().into()
+        match self.source.next() {
+            Fixed(InRange(v)) => Some(v),
+            _ => None,
+        }
     }
 }
 
@@ -185,27 +217,15 @@ where
     type Val = I::Val;
 }
 
-// TODO: func にしなくていい、もう少ししたら消す
-// impl<S, V, I> FuncIndicator<S, V> for FuncIter<S, I>
-// where
-//     // S: Granularity,
-//     S: Sequence,
-//     I: FuncIndicator<S, V>,
-// {
-//     fn value(&self, seq: S) -> MaybeValue<V> {
-//         self.source.value(seq)
-//     }
-// }
-
 impl<S, I> IterIndicator for FuncIter<S, I>
 where
     S: Sequence,
     I: FuncIndicator<Seq = S>,
 {
     fn next(&mut self) -> MaybeValue<Self::Val> {
-        let v = try_value!(self.source.value(self.offset));
+        let v = try_fixed!(self.source.value(self.offset));
         self.offset = self.offset + 1;
-        MaybeValue::Value(v)
+        Fixed(v)
     }
 
     fn offset(&self) -> Self::Seq {
@@ -405,16 +425,21 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vec::*;
-    use MaybeValue::*;
     use crate::granularity::*;
+    use crate::vec::*;
 
     #[test]
     fn test_zip() {
         let offset = Time::<S5>::new(0);
         let source_1 = vec![1.0, 2.0, 3.0, 4.0, 5.0_f64];
         let source_2 = vec![0, -1, 0, 1, 0_i32];
-        let expect = vec![Value(0.0), Value(2.0), Value(0.0), Value(4.0), Value(0.0)];
+        let expect = vec![
+            Fixed(InRange(0.0)),
+            Fixed(InRange(2.0)),
+            Fixed(InRange(0.0)),
+            Fixed(InRange(4.0)),
+            Fixed(InRange(0.0)),
+        ];
         let vec_1 = VecIndicator::new(offset, source_1);
         let vec_2 = VecIndicator::new(offset, source_2);
         let func = vec_1.zip(vec_2).map(|(v1, v2)| v1 * v2.abs() as f64);

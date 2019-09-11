@@ -1,6 +1,8 @@
 use super::*;
 use crate::transaction::*;
 use chrono::prelude::*;
+use MaybeFixed::*;
+use MaybeInRange::*;
 
 // pub struct Trade<T> {
 //     pub open: T,
@@ -40,22 +42,23 @@ where
     I: FuncIndicator<Seq = TransactionId, Val = SimpleTransaction>,
 {
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
-        match try_value!(self.source.value(seq)) {
+        let v = match try_value!(self.source.value(seq)) {
             SimpleTransaction::CloseOrderFill(close) => {
                 match try_value!(self.source.value(close.open_id)) {
-                    SimpleTransaction::OpenOrderFill(open) => MaybeValue::Value(Some(Trade {
+                    SimpleTransaction::OpenOrderFill(open) => Some(Trade {
                         unit: close.unit,
                         long_or_short: open.ticket.long_or_short,
                         open_time: open.time,
                         close_time: close.time,
                         open_price: open.ticket.price,
                         close_price: close.price,
-                    })),
+                    }),
                     _ => panic!("invalid transaction"),
                 }
             }
-            _ => MaybeValue::Value(None),
-        }
+            _ => None,
+        };
+        Fixed(InRange(v))
     }
 }
 // impl<S, T, I> Indicator<S, Trade<T>> for TradeHistories<S, I> where S: Sequence {}
@@ -141,29 +144,29 @@ mod tests {
         );
 
         let trade = TradeHistories::new(source);
-        assert_eq!(trade.value(offset + 0), MaybeValue::Value(None));
-        assert_eq!(trade.value(offset + 1), MaybeValue::Value(None));
+        assert_eq!(trade.value(offset + 0), Fixed(InRange(None)));
+        assert_eq!(trade.value(offset + 1), Fixed(InRange(None)));
         assert_eq!(
             trade.value(offset + 2),
-            MaybeValue::Value(Some(Trade {
+            Fixed(InRange(Some(Trade {
                 unit: 100,
                 long_or_short: Long,
                 open_time: (time + 0).into(),
                 close_time: (time + 5).into(),
                 open_price: 1.234,
                 close_price: 1.5,
-            }))
+            })))
         );
         assert_eq!(
             trade.value(offset + 3),
-            MaybeValue::Value(Some(Trade {
+            Fixed(InRange(Some(Trade {
                 unit: 100,
                 long_or_short: Short,
                 open_time: (time + 3).into(),
                 close_time: (time + 9).into(),
                 open_price: 1.4,
                 close_price: 1.1,
-            }))
+            })))
         );
     }
 }
