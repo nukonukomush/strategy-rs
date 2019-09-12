@@ -25,7 +25,15 @@ def default(T):
         Option(c_double): Option(c_double).none,
         CrossState: 0,
         SimplePosition: 0,
+        # MaybeInRange(c_int): MaybeInRange(c_int).none, 
+        # MaybeInRange(c_double): MaybeInRange(c_double).none, 
+        # MaybeInRange(Option(c_double)): MaybeInRange(Option(c_double)).none, 
+        # MaybeInRange(CrossState): MaybeInRange(CrossState).none, 
+        # MaybeInRange(SimplePosition): MaybeInRange(SimplePosition).none, 
     }
+    add = { MaybeInRange(k):MaybeInRange(k).out_of_range for k in defaults.keys() }
+    for k, v in add.items():
+        defaults[k] = v
     return defaults[T]()
 
 def get_rust_type(T):
@@ -101,58 +109,131 @@ def Option(T):
 type_map[Option(c_double)] = "option_f64"
 type_map[Option(c_int)] = "option_i32"
 
-def MaybeValue_eq(self, other):
+
+def MaybeInRange_eq(self, other):
     if other is None or not isinstance(other, self.__class__):
         return False
-    if self.is_value == other.is_value:
-        if self.is_value:
-            return self.content == other.content
+    if self.is_in_range == other.is_in_range:
+        if self.is_in_range:
+            return self.value == other.value
         else:
             return True
     else:
         return False
 
-def MaybeValue_repr(self):
-    if self.is_value:
-        return "Value({})".format(str(self.content))
+def MaybeInRange_repr(self):
+    if self.is_in_range:
+        return "InRange({})".format(str(self.value))
     else:
         return "OutOfRange"
 
-def MaybeValue_nullable(self):
-    if self.is_value:
-        return self.content
+def MaybeInRange_nullable(self):
+    if self.is_in_range:
+        return self.value
     return None
 
-def MaybeValue_from_nullable(T, n):
+def MaybeInRange_from_nullable(T, n):
     if n is None:
-        return MaybeValue(T).out_of_range()
-    return MaybeValue(T).value(n)
+        return MaybeInRange(T).out_of_range()
+    return MaybeInRange(T).in_range(n)
 
-maybevalue_types = {}
+maybeinrange_types = {}
 for T, t_str in type_map.items():
-    def def_maybevalue(t):
+    def def_maybeinrange(t):
         T = t
-        maybevalue_t_str = "MaybeValue_{}".format(t_str)
-        maybevalue_types[T] = type(maybevalue_t_str, (Structure,), {
-            "__eq__": MaybeValue_eq,
-            "__repr__": MaybeValue_repr,
-            "nullable": MaybeValue_nullable,
+        maybeinrange_t_str = "MaybeInRange_{}".format(t_str)
+        maybeinrange_types[T] = type(maybeinrange_t_str, (Structure,), {
+            "__eq__": MaybeInRange_eq,
+            "__repr__": MaybeInRange_repr,
+            "nullable": MaybeInRange_nullable,
         })
-        maybevalue_types[T]._fields_ = [
-            ("is_value", c_byte),
-            ("content", T),
+        maybeinrange_types[T]._fields_ = [
+            ("is_in_range", c_byte),
+            ("value", T),
         ]
-        maybevalue_types[T].value = lambda v: maybevalue_types[T](1, v)
-        maybevalue_types[T].out_of_range = lambda : maybevalue_types[T](0, default(T))
-        maybevalue_types[T].from_nullable = MaybeValue_from_nullable
-        maybevalue_types[T].T = T
-    def_maybevalue(T)
+        maybeinrange_types[T].in_range = lambda v: maybeinrange_types[T](1, v)
+        maybeinrange_types[T].out_of_range = lambda : maybeinrange_types[T](0, default(T))
+        maybeinrange_types[T].from_nullable = MaybeInRange_from_nullable
+        maybeinrange_types[T].T = T
+    def_maybeinrange(T)
+
+def MaybeInRange(T):
+    if T in maybeinrange_types:
+        return maybeinrange_types[T]
+    else:
+        raise TypeError("type {} is not available for MaybeInRange.".format(T))
+
+tmap = { MaybeInRange(k):"maybe_in_range_" + v for k,v in type_map.items() }
+for k, v in tmap.items():
+    type_map[k] = v
+# type_map[MaybeInRange(c_double)] = "maybe_in_range_f64"
+# type_map[MaybeInRange(c_int)] = "maybe_in_range_i32"
+
+def MaybeFixed_eq(self, other):
+    if other is None or not isinstance(other, self.__class__):
+        return False
+    if self.is_fixed == other.is_fixed:
+        if self.is_fixed:
+            return self.value == other.value
+        else:
+            return True
+    else:
+        return False
+
+def MaybeFixed_repr(self):
+    if self.is_fixed:
+        return "Fixed({})".format(str(self.value))
+    else:
+        return "NotFixed"
+
+def MaybeFixed_nullable(self):
+    if self.is_fixed:
+        return self.value
+    return None
+
+def MaybeFixed_from_nullable(T, n):
+    if n is None:
+        return MaybeFixed(T).not_fixed()
+    return MaybeFixed(T).fixed(n)
+
+maybefixed_types = {}
+for T, t_str in type_map.items():
+    def def_maybefixed(t):
+        T = t
+        maybefixed_t_str = "MaybeFixed_{}".format(t_str)
+        maybefixed_types[T] = type(maybefixed_t_str, (Structure,), {
+            "__eq__": MaybeFixed_eq,
+            "__repr__": MaybeFixed_repr,
+            "nullable": MaybeFixed_nullable,
+        })
+        maybefixed_types[T]._fields_ = [
+            ("is_fixed", c_byte),
+            ("value", T),
+        ]
+        maybefixed_types[T].fixed = lambda v: maybefixed_types[T](1, v)
+        maybefixed_types[T].not_fixed = lambda : maybefixed_types[T](0, default(T))
+        maybefixed_types[T].from_nullable = MaybeFixed_from_nullable
+        maybefixed_types[T].T = T
+    def_maybefixed(T)
+
+def MaybeFixed(T):
+    if T in maybefixed_types:
+        return maybefixed_types[T]
+    else:
+        raise TypeError("type {} is not available for MaybeFixed.".format(T))
 
 def MaybeValue(T):
-    if T in maybevalue_types:
-        return maybevalue_types[T]
-    else:
-        raise TypeError("type {} is not available for MaybeValue.".format(T))
+    return MaybeFixed(MaybeInRange(T))
+
+def value(T, v):
+    return MaybeValue(T).fixed(MaybeInRange(T).in_range(v))
+
+def out_of_range(T):
+    return MaybeValue(T).fixed(MaybeInRange(T).out_of_range())
+
+def not_fixed(T):
+    return MaybeValue(T).not_fixed()
+
 
 
 from datetime import datetime
@@ -230,6 +311,7 @@ class Indicator:
     ]:
         get_func("indicator", "value", S1, V1).argtypes = [c_void_p, S2]
         get_func("indicator", "value", S1, V1).restype = MaybeValue(V2)
+        # get_func("indicator", "value", S1, V1).restype = MaybeFixed(MaybeInRange(V2))
 
     def value(self, i):
         return get_func("indicator", "value", self._S, self._V)(self._ptr.f_ptr, i)
@@ -366,11 +448,15 @@ class Func:
 
     def value(self, i):
         args = [source.value(i) for source in self.sources]
-        out_of_range_args = [arg for arg in args if arg.is_value == 0 ]
-        if len(out_of_range_args) == 0:
-            v = self.value_func(*[arg.content for arg in args])
-            return MaybeValue(self.V).value(v)
-        return MaybeValue(self.V).out_of_range()
+        not_fixed_args = [arg for arg in args if arg.is_fixed == 0]
+        out_of_range_args = [arg for arg in args if arg.is_fixed == 1 and arg.value.is_in_range == 0]
+        if len(out_of_range_args) != 0:
+            return out_of_range(self.V)
+        elif len(not_fixed_args) != 0:
+            return not_fixed(self.V)
+        else:
+            v = self.value_func(*[arg.value.value for arg in args])
+            return value(self.V, v)
 
 class Slope(Indicator):
     _cls_ = "slope"
@@ -401,18 +487,21 @@ class IterFunc:
 
     def __next(self):
         v = self.source.value(self.offset)
-        if v.is_value:
+        if v.is_fixed:
             self.offset += 1
-            v2 = self.func(v.content)
-            self.vec.add(v2)
-            return MaybeValue(self.V2).value(v2)
+            if v.value.is_in_range:
+                v2 = self.func(v.value.value)
+                self.vec.add(v2)
+                return value(self.V2, v2)
+            else:
+                return out_of_range(self.V2)
         else:
-            return v
+            return not_fixed(self.V2)
 
     def value(self, i):
         while self.offset <= i:
             v = self.__next();
-            if v.is_value == 0:
+            if v.is_fixed == 0 or v.value.is_in_range == 0:
                 break
         return self.vec.value(i)
 

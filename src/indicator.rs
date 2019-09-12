@@ -43,6 +43,20 @@ impl<V> MaybeFixed<V> {
     }
 }
 
+impl<V> MaybeFixed<MaybeInRange<V>> {
+    pub fn map2<T, F: FnOnce(V) -> T>(self, f: F) -> MaybeFixed<MaybeInRange<T>> {
+        match self {
+            MaybeFixed::Fixed(MaybeInRange::InRange(x)) => {
+                MaybeFixed::Fixed(MaybeInRange::InRange(f(x)))
+            }
+            MaybeFixed::Fixed(MaybeInRange::OutOfRange) => {
+                MaybeFixed::Fixed(MaybeInRange::OutOfRange)
+            }
+            MaybeFixed::NotFixed => MaybeFixed::NotFixed,
+        }
+    }
+}
+
 macro_rules! try_fixed {
     ($expr:expr) => {
         match $expr {
@@ -487,7 +501,7 @@ pub mod tests {
     // }
 }
 
-#[cfg(ffi)]
+#[cfg(feature = "ffi")]
 #[macro_use]
 pub mod ffi {
     use super::*;
@@ -497,61 +511,107 @@ pub mod ffi {
     use std::ops::Deref;
 
     #[repr(C)]
-    pub struct CMaybeValue<T> {
-        is_value: c_char,
-        is_before: c_char,
-        is_after: c_char,
+    pub struct CMaybeFixed<T> {
+        is_fixed: c_char,
         value: T,
     }
 
-    impl<T> CMaybeValue<T>
+    impl<T> CMaybeFixed<T>
     where
         T: Default,
     {
-        pub fn after_range() -> Self {
+        pub fn not_fixed() -> Self {
             Self {
-                is_value: 0,
-                is_before: 0,
-                is_after: 1,
+                is_fixed: 0,
                 value: Default::default(),
             }
         }
 
-        pub fn before_range() -> Self {
+        pub fn fixed(value: T) -> Self {
             Self {
-                is_value: 0,
-                is_before: 1,
-                is_after: 0,
-                value: Default::default(),
-            }
-        }
-
-        pub fn value(value: T) -> Self {
-            Self {
-                is_value: 1,
-                is_before: 0,
-                is_after: 0,
+                is_fixed: 1,
                 value: value,
             }
         }
 
         pub fn from_option(value: Option<T>) -> Self {
             match value {
-                Some(value) => Self::value(value),
-                None => Self::before_range(),
+                Some(value) => Self::fixed(value),
+                None => Self::not_fixed(),
             }
         }
     }
 
-    impl<V> From<MaybeValue<V>> for CMaybeValue<V>
+    impl<V> Default for CMaybeFixed<V>
     where
         V: Default,
     {
-        fn from(v: MaybeValue<V>) -> Self {
+        fn default() -> Self {
+            Self::not_fixed()
+        }
+    }
+
+    impl<V> From<MaybeFixed<V>> for CMaybeFixed<V>
+    where
+        V: Default,
+    {
+        fn from(v: MaybeFixed<V>) -> Self {
             match v {
-                MaybeValue::Value(v) => CMaybeValue::value(v),
-                MaybeValue::AfterRange => CMaybeValue::after_range(),
-                MaybeValue::BeforeRange => CMaybeValue::before_range(),
+                MaybeFixed::Fixed(v) => CMaybeFixed::fixed(v),
+                MaybeFixed::NotFixed => CMaybeFixed::not_fixed(),
+            }
+        }
+    }
+
+    #[repr(C)]
+    pub struct CMaybeInRange<T> {
+        is_in_range: c_char,
+        value: T,
+    }
+
+    impl<T> CMaybeInRange<T>
+    where
+        T: Default,
+    {
+        pub fn out_of_range() -> Self {
+            Self {
+                is_in_range: 0,
+                value: Default::default(),
+            }
+        }
+
+        pub fn in_range(value: T) -> Self {
+            Self {
+                is_in_range: 1,
+                value: value,
+            }
+        }
+
+        pub fn from_option(value: Option<T>) -> Self {
+            match value {
+                Some(value) => Self::in_range(value),
+                None => Self::out_of_range(),
+            }
+        }
+    }
+
+    impl<V> Default for CMaybeInRange<V>
+    where
+        V: Default,
+    {
+        fn default() -> Self {
+            Self::out_of_range()
+        }
+    }
+
+    impl<V> From<MaybeInRange<V>> for CMaybeInRange<V>
+    where
+        V: Default,
+    {
+        fn from(v: MaybeInRange<V>) -> Self {
+            match v {
+                MaybeInRange::InRange(v) => CMaybeInRange::in_range(v),
+                MaybeInRange::OutOfRange => CMaybeInRange::out_of_range(),
             }
         }
     }
@@ -561,6 +621,7 @@ pub mod ffi {
 
     impl<S, V> Indicator for FuncIndicatorPtr<S, V>
     where
+        V: std::fmt::Debug,
         S: Sequence,
     {
         type Seq = S;
@@ -569,6 +630,7 @@ pub mod ffi {
 
     impl<S, V> FuncIndicator for FuncIndicatorPtr<S, V>
     where
+        V: std::fmt::Debug,
         S: Sequence,
     {
         fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
@@ -589,21 +651,24 @@ pub mod ffi {
         pub f_ptr: *mut FuncIndicatorPtr<S, V>,
     }
 
-    // pub unsafe fn indicator_value<S, CS, V>(
-    //     ptr: *mut FuncIndicatorPtr<S, V>,
-    //     seq: CS,
-    // ) -> CMaybeValue<V>
-    // where
-    //     CS: Into<S>,
-    //     V: Default,
-    // {
-    //     if ptr.is_null() {
-    //         return CMaybeValue::out_of_range();
-    //     }
+    pub type CMaybeValue<T> = CMaybeFixed<CMaybeInRange<T>>;
 
-    //     let ptr = &*ptr;
-    //     CMaybeValue::from(ptr.borrow().value(seq.into()))
-    // }
+    impl<T> From<MaybeValue<T>> for CMaybeValue<T>
+    where
+        T: Default,
+    {
+        fn from(v: MaybeValue<T>) -> Self {
+            match v {
+                MaybeFixed::Fixed(MaybeInRange::InRange(v)) => {
+                    CMaybeFixed::fixed(CMaybeInRange::in_range(v))
+                }
+                MaybeFixed::Fixed(MaybeInRange::OutOfRange) => {
+                    CMaybeFixed::fixed(CMaybeInRange::out_of_range())
+                }
+                MaybeFixed::NotFixed => CMaybeFixed::not_fixed(),
+            }
+        }
+    }
 
     pub unsafe fn value<S, CS, V, CV>(ptr: *mut FuncIndicatorPtr<S, V>, seq: CS) -> CMaybeValue<CV>
     where
@@ -612,11 +677,10 @@ pub mod ffi {
     {
         if ptr.is_null() {
             panic!("pointer is null");
-            // return CMaybeValue::after_range();
         }
 
         let ptr = &*ptr;
-        CMaybeValue::from(ptr.borrow().value(seq.into()).map(CV::from))
+        CMaybeValue::from(ptr.borrow().value(seq.into()).map2(CV::from))
     }
 
     macro_rules! define_value {

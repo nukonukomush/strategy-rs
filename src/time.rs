@@ -107,6 +107,7 @@ where
     }
 }
 
+#[cfg(feature = "ffi")]
 pub mod ffi {
     use super::*;
     use crate::granularity::ffi::Var;

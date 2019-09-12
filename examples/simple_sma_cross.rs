@@ -12,9 +12,11 @@ use strategy::time::*;
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
 
+    info!("start load data");
     let data = fs::read_to_string("./examples/data/EUR_USD_2019-01-01_2019-01-02.json")?;
     // println!("{}", data);
     let data: serde_json::Value = serde_json::from_str(data.as_str())?;
+    info!("finish load data");
 
     // let v = get_value_from_data(
     //     &data,
@@ -35,9 +37,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut strategy = SimpleSmaCrossStrategy::new(SimpleStrategyBase {}, start, TransactionId(0));
 
+    info!("start test");
     for time in start.range_to_end(end) {
         let dt: DateTime<Utc> = time.into();
-        info!("{:?}", dt);
+        debug!("{:?}", dt);
 
         update_source(&mut strategy, &data, dt);
         strategy.on_tick(dt);
@@ -46,6 +49,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         //     strategy.on_tick(dt);
         // }
     }
+    info!("finish test");
 
     Ok(())
 }

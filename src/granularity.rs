@@ -35,6 +35,7 @@ define_static_granularity!(D1, 60 * 60 * 24, |t| {
     dt.hour() == 0 && dt.minute() == 0 && dt.second() == 0
 });
 
+#[cfg(feature = "ffi")]
 pub mod ffi {
     use super::*;
 

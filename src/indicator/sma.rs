@@ -41,7 +41,7 @@ where
     }
 }
 
-#[cfg(ffi)]
+#[cfg(feature = "ffi")]
 mod ffi {
     use super::*;
     use crate::granularity::ffi::*;

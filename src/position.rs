@@ -5,6 +5,7 @@ pub enum SimplePosition {
     Short,
 }
 
+#[cfg(feature = "ffi")]
 pub mod ffi {
     use super::*;
 

@@ -52,11 +52,6 @@ where
             Some(InRange(v)) => Fixed(InRange(v)),
             Some(OutOfRange) => Fixed(OutOfRange),
             None => {
-                // let src_value = try_value!(self.source.value(seq));
-                // let value = match src_value {
-                //     Some(v) => Fixed(InRange(v)),
-                //     None => self.value(seq - 1),
-                // };
                 let value = match self.source.value(seq) {
                     Fixed(InRange(Some(v))) => Fixed(InRange(v)),
                     Fixed(InRange(None)) => self.value(seq - 1),
@@ -73,7 +68,7 @@ where
     }
 }
 
-#[cfg(ffi)]
+#[cfg(feature = "ffi")]
 pub mod ffi {
     use super::*;
     use crate::granularity::ffi::*;
@@ -89,7 +84,7 @@ pub mod ffi {
     where
         S: Sequence + 'static,
         CS: Into<S>,
-        V: Clone + 'static,
+        V: Clone + std::fmt::Debug + 'static,
         CV: Into<V>,
     {
         let source = (*source).clone();

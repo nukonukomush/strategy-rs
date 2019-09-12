@@ -35,7 +35,7 @@ where
     }
 }
 
-#[cfg(ffi)]
+#[cfg(feature = "ffi")]
 mod ffi {
     use super::*;
     use crate::granularity::ffi::*;
@@ -47,7 +47,7 @@ mod ffi {
     pub unsafe fn new<S, V>(source: *mut FuncIndicatorPtr<S, V>) -> IPtr<S, V>
     where
         S: Sequence + 'static,
-        V: Clone + std::ops::Sub<Output = V> + 'static,
+        V: Clone + std::ops::Sub<Output = V> + std::fmt::Debug + 'static,
     {
         let source = (*source).clone();
         let ptr = Slope::new(source).into_sync_ptr();

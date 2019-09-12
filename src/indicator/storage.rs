@@ -82,7 +82,7 @@ where
     }
 }
 
-#[cfg(ffi)]
+#[cfg(feature = "ffi")]
 mod hash_ffi {
     use super::*;
     use crate::granularity::ffi::*;
@@ -96,7 +96,7 @@ mod hash_ffi {
     where
         S: Sequence + 'static,
         CS: Into<S>,
-        V: Clone + 'static,
+        V: Clone + std::fmt::Debug + 'static,
     {
         let ptr = Rc::new(RefCell::new(Storage::new(offset.into())));
         Ptr {

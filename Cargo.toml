@@ -20,3 +20,7 @@ log = "0.4.8"
 [lib]
 name = "strategy"
 crate-type = ["rlib", "dylib"]
+
+[features]
+default = ["ffi"]
+ffi = []

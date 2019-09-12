@@ -53,7 +53,7 @@ where
     }
 }
 
-#[cfg(ffi)]
+#[cfg(feature = "ffi")]
 mod ffi {
     use super::*;
     use crate::granularity::ffi::*;
@@ -69,7 +69,7 @@ mod ffi {
     where
         S: Sequence + 'static,
         CS: Into<S>,
-        V: Clone + 'static,
+        V: Clone + std::fmt::Debug + 'static,
         CV: Into<V>,
     {
         let source = (*source).clone();

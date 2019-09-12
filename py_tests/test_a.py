@@ -26,12 +26,12 @@ def test_vec_time():
     offset = ffi.Time(0, 5)
     source = [1, 2, 3, 4, 5]
     expect = [
-        ffi.MaybeValue(c_double).value(1),
-        ffi.MaybeValue(c_double).value(2),
-        ffi.MaybeValue(c_double).value(3),
-        ffi.MaybeValue(c_double).value(4),
-        ffi.MaybeValue(c_double).value(5),
-        ffi.MaybeValue(c_double).out_of_range(),
+        ffi.value(c_double, 1),
+        ffi.value(c_double, 2),
+        ffi.value(c_double, 3),
+        ffi.value(c_double, 4),
+        ffi.value(c_double, 5),
+        ffi.not_fixed(c_double),
      ]
 
     vec = ffi.Vec(ffi.Time, c_double, source, offset)
@@ -46,12 +46,12 @@ def test_vec_tid():
     offset = 10
     source = [1, 2, 3, 4, 5]
     expect = [
-        ffi.MaybeValue(c_double).value(1),
-        ffi.MaybeValue(c_double).value(2),
-        ffi.MaybeValue(c_double).value(3),
-        ffi.MaybeValue(c_double).value(4),
-        ffi.MaybeValue(c_double).value(5),
-        ffi.MaybeValue(c_double).out_of_range(),
+        ffi.value(c_double, 1),
+        ffi.value(c_double, 2),
+        ffi.value(c_double, 3),
+        ffi.value(c_double, 4),
+        ffi.value(c_double, 5),
+        ffi.not_fixed(c_double),
      ]
 
     vec = ffi.Vec(ffi.TransactionId, c_double, source, offset)
@@ -66,12 +66,12 @@ def test_storage():
     source = [1, 2, None, 4, 5]
     ffi.Option(c_double).none()
     expect = [
-        ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(1)),
-        ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(2)),
-        ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).none()),
-        ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(4)),
-        ffi.MaybeValue(ffi.Option(c_double)).value(ffi.Option(c_double).some(5)),
-        ffi.MaybeValue(ffi.Option(c_double)).out_of_range(),
+        ffi.value(ffi.Option(c_double), ffi.Option(c_double).some(1)),
+        ffi.value(ffi.Option(c_double), ffi.Option(c_double).some(2)),
+        ffi.value(ffi.Option(c_double), ffi.Option(c_double).none()),
+        ffi.value(ffi.Option(c_double), ffi.Option(c_double).some(4)),
+        ffi.value(ffi.Option(c_double), ffi.Option(c_double).some(5)),
+        ffi.not_fixed(ffi.Option(c_double)),
     ]
 
     h = ffi.Storage(ffi.Time, c_double, offset)
@@ -86,12 +86,12 @@ def test_sma():
     offset = ffi.Time(0, 10)
     source = [1, 2, 3, 4, 5]
     expect = [
-        ffi.MaybeValue(c_double).out_of_range(),
-        ffi.MaybeValue(c_double).out_of_range(),
-        ffi.MaybeValue(c_double).value(2),
-        ffi.MaybeValue(c_double).value(3),
-        ffi.MaybeValue(c_double).value(4),
-        ffi.MaybeValue(c_double).out_of_range(),
+        ffi.out_of_range(c_double),
+        ffi.out_of_range(c_double),
+        ffi.value(c_double, 2),
+        ffi.value(c_double, 3),
+        ffi.value(c_double, 4),
+        ffi.not_fixed(c_double),
     ]
 
     vec = ffi.Vec(ffi.Time, c_double, source, offset)
@@ -104,12 +104,12 @@ def test_cmpl():
     offset = ffi.Time(0, 5)
     source = [1, 2, None, 4, 5]
     expect = [
-        ffi.MaybeValue(c_double).value(1),
-        ffi.MaybeValue(c_double).value(2),
-        ffi.MaybeValue(c_double).value(2),
-        ffi.MaybeValue(c_double).value(4),
-        ffi.MaybeValue(c_double).value(5),
-        ffi.MaybeValue(c_double).out_of_range(),
+        ffi.value(c_double, 1),
+        ffi.value(c_double, 2),
+        ffi.value(c_double, 2),
+        ffi.value(c_double, 4),
+        ffi.value(c_double, 5),
+        ffi.value(c_double, 5),
      ]
 
     h = ffi.Storage(ffi.Time, c_double, offset)
@@ -126,17 +126,17 @@ def test_cross():
     source_1 = [0, 0, 2, 2, 0, 1, 1, 2, 1, 0]
     source_2 = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     expect = [
-        ffi.MaybeValue(c_int).value(0),
-        ffi.MaybeValue(c_int).value(0),
-        ffi.MaybeValue(c_int).value(1),
-        ffi.MaybeValue(c_int).value(0),
-        ffi.MaybeValue(c_int).value(-1),
-        ffi.MaybeValue(c_int).value(0),
-        ffi.MaybeValue(c_int).value(0),
-        ffi.MaybeValue(c_int).value(1),
-        ffi.MaybeValue(c_int).value(0),
-        ffi.MaybeValue(c_int).value(-1),
-        ffi.MaybeValue(c_int).out_of_range(),
+        ffi.value(c_int, 0),
+        ffi.value(c_int, 0),
+        ffi.value(c_int, 1),
+        ffi.value(c_int, 0),
+        ffi.value(c_int, -1),
+        ffi.value(c_int, 0),
+        ffi.value(c_int, 0),
+        ffi.value(c_int, 1),
+        ffi.value(c_int, 0),
+        ffi.value(c_int, -1),
+        ffi.not_fixed(c_int),
     ]
 
     vec_1 = ffi.Vec(ffi.Time, c_double, source_1, offset)
@@ -152,13 +152,13 @@ def test_func():
     source_1 = [1, 2, 3, 4, 5]
     source_2 = [0, -1, 0, 1, 0]
     expect = [
-        ffi.MaybeValue(c_double).value(0),
-        ffi.MaybeValue(c_double).value(2),
-        ffi.MaybeValue(c_double).value(0),
-        ffi.MaybeValue(c_double).value(4),
-        ffi.MaybeValue(c_double).value(0),
-        ffi.MaybeValue(c_double).out_of_range(),
-    ]
+        ffi.value(c_double, 0),
+        ffi.value(c_double, 2),
+        ffi.value(c_double, 0),
+        ffi.value(c_double, 4),
+        ffi.value(c_double, 0),
+        ffi.not_fixed(c_double),
+     ]
     vec_1 = ffi.Vec(ffi.Time, c_double, source_1, offset)
     vec_2 = ffi.Vec(ffi.Time, c_double, source_2, offset)
 
@@ -174,12 +174,12 @@ def test_slope():
     offset = ffi.Time(0, 10)
     source = [1, 2, 4, 8, 6]
     expect = [
-        ffi.MaybeValue(c_double).out_of_range(),
-        ffi.MaybeValue(c_double).value(1),
-        ffi.MaybeValue(c_double).value(2),
-        ffi.MaybeValue(c_double).value(4),
-        ffi.MaybeValue(c_double).value(-2),
-        ffi.MaybeValue(c_double).out_of_range(),
+        ffi.out_of_range(c_double),
+        ffi.value(c_double, 1),
+        ffi.value(c_double, 2),
+        ffi.value(c_double, 4),
+        ffi.value(c_double, -2),
+        ffi.not_fixed(c_double),
     ]
 
     vec = ffi.Vec(ffi.Time, c_double, source, offset)
@@ -192,12 +192,12 @@ def test_iter_func():
     offset = ffi.Time(0, 10)
     source = [1, 2, 4, 8, 6]
     expect = [
-        ffi.MaybeValue(c_double).value(1),
-        ffi.MaybeValue(c_double).value(3),
-        ffi.MaybeValue(c_double).value(7),
-        ffi.MaybeValue(c_double).value(15),
-        ffi.MaybeValue(c_double).value(21),
-        ffi.MaybeValue(c_double).out_of_range(),
+        ffi.value(c_double, 1),
+        ffi.value(c_double, 3),
+        ffi.value(c_double, 7),
+        ffi.value(c_double, 15),
+        ffi.value(c_double, 21),
+        ffi.not_fixed(c_double),
     ]
 
     s = 0
@@ -209,31 +209,31 @@ def test_iter_func():
     vec = ffi.Vec(ffi.Time, c_double, source, offset)
     f = ffi.IterFunc(ffi.Time, c_double, c_double, vec, offset, func)
 
-    assert f.value(offset + 4) == ffi.MaybeValue(c_double).value(21)
+    assert f.value(offset + 4) == ffi.value(c_double, 21)
 
     result = [f.value(offset + i) for i in range(0, 6)]
     assert result == expect
 
 
-# # def test_trailing_stop():
-# #     offset = ffi.Time("2019-01-01 00:00:00", 60)
-# #     source_price = [1, 2, -3, 8, 3]
-# #     source_position = [1, 1, 1, 1, 1]
-# #     expect = [
-# #         ffi.Option(c_int).some(0),
-# #         ffi.Option(c_int).some(0),
-# #         ffi.Option(c_int).some(1),
-# #         ffi.Option(c_int).some(0),
-# #         ffi.Option(c_int).some(1),
-# #         ffi.Option(c_int).none(),
-# #     ]
+# # # def test_trailing_stop():
+# # #     offset = ffi.Time("2019-01-01 00:00:00", 60)
+# # #     source_price = [1, 2, -3, 8, 3]
+# # #     source_position = [1, 1, 1, 1, 1]
+# # #     expect = [
+# # #         ffi.Option(c_int).some(0),
+# # #         ffi.Option(c_int).some(0),
+# # #         ffi.Option(c_int).some(1),
+# # #         ffi.Option(c_int).some(0),
+# # #         ffi.Option(c_int).some(1),
+# # #         ffi.Option(c_int).none(),
+# # #     ]
 
-# #     vec_price = ffi.Vec(offset, c_double, source_price)
-# #     hash_position = ffi.Hash(ffi.SimplePosition, 5)
-# #     for i, v in enumerate(source_position):
-# #         if v is not None:
-# #             hash_position.set(offset + i, v)
-# #     trailing_stop = ffi.TrailingStop(c_double, vec_price, hash_position, 4.0)
-# #     result = [trailing_stop.value(offset + i) for i in range(0, 6)]
+# # #     vec_price = ffi.Vec(offset, c_double, source_price)
+# # #     hash_position = ffi.Hash(ffi.SimplePosition, 5)
+# # #     for i, v in enumerate(source_position):
+# # #         if v is not None:
+# # #             hash_position.set(offset + i, v)
+# # #     trailing_stop = ffi.TrailingStop(c_double, vec_price, hash_position, 4.0)
+# # #     result = [trailing_stop.value(offset + i) for i in range(0, 6)]
 
-# #     assert result == expect
+# # #     assert result == expect

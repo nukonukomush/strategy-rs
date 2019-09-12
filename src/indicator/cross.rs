@@ -66,7 +66,7 @@ pub enum CrossState {
     GtToLt,
 }
 
-#[cfg(ffi)]
+#[cfg(feature = "ffi")]
 pub mod ffi {
     use super::*;
     use crate::granularity::ffi::*;
@@ -105,7 +105,7 @@ pub mod ffi {
     ) -> IPtr<S, V>
     where
         S: Sequence + 'static,
-        V: Clone + PartialOrd + 'static,
+        V: Clone + PartialOrd + std::fmt::Debug + 'static,
     {
         let source_1 = (*source_1).clone();
         let source_2 = (*source_2).clone();

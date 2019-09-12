@@ -1,5 +1,6 @@
 pub mod library;
 
+#[cfg(feature = "ffi")]
 pub mod ffi {
     use std::os::raw::c_char;
     #[repr(C)]
