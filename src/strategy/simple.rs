@@ -1,10 +1,13 @@
 use super::*;
 use crate::granularity::*;
+use crate::indicator::balance::*;
 use crate::indicator::complement::*;
+use crate::indicator::convert_seq::*;
 use crate::indicator::convert_seq::*;
 use crate::indicator::cross::*;
 use crate::indicator::sma::*;
 use crate::indicator::storage::*;
+use crate::indicator::trade::*;
 use crate::indicator::vec::*;
 use crate::indicator::*;
 use crate::position::*;
@@ -12,6 +15,7 @@ use crate::seq::*;
 use crate::signal::*;
 use crate::ticket::*;
 use crate::time::*;
+use crate::trade::*;
 use crate::transaction::*;
 use chrono::prelude::*;
 use log::*;
@@ -32,10 +36,12 @@ pub struct SimpleSmaCrossStrategy {
     bid_close_cmpl: Rc<RefCell<dyn FuncIndicator<Seq = Time<S5>, Val = f64>>>,
     ask_close_cmpl: Rc<RefCell<dyn FuncIndicator<Seq = Time<S5>, Val = f64>>>,
     transaction: Rc<RefCell<VecIndicator<TransactionId, SimpleTransaction>>>,
+    trade: Rc<RefCell<dyn FuncIndicator<Seq = TransactionId, Val = Option<Trade>>>>,
     signal: Box<dyn IterIndicator<Seq = Time<S5>, Val = SimpleSignal>>,
     tid_offset: TransactionId,
     ticket_id_offset: TicketId,
     single_ticket: Rc<RefCell<SingleSimpleTicket>>,
+    balance: Box<dyn IterIndicator<Seq = Time<S5>, Val = f64>>,
 }
 
 impl SimpleSmaCrossStrategy {
@@ -72,6 +78,22 @@ impl SimpleSmaCrossStrategy {
             })
         };
 
+        let trade = TradeHistories::new(transaction.clone()).into_sync_ptr();
+        let pl = ProfitLoss::new(trade.clone()).into_sync_ptr();
+        let mut sum = 0.0;
+        let balance = Consume::new(time_offset, pl.clone().into_iter(tid_offset), |i| {
+            let v = i.into_std().fold(0.0, |acc, v| acc + v);
+            Fixed(InRange(v))
+        })
+        .map(move |v| {
+            sum += v;
+            // debug!("balance: {:?}", sum);
+            if v != 0.0 {
+                info!("balance: {:?}", sum);
+            }
+            sum
+        }).into_sync_ptr();
+
         let signal = sma_cross
             .clone()
             .into_iter(time_offset)
@@ -97,10 +119,12 @@ impl SimpleSmaCrossStrategy {
             bid_close_cmpl: bid_close_cmpl,
             ask_close_cmpl: ask_close_cmpl,
             transaction: transaction,
+            trade: trade,
             signal: signal,
             tid_offset: tid_offset,
             ticket_id_offset: TicketId(0),
             single_ticket: single_ticket,
+            balance: balance,
         }
     }
 
@@ -140,6 +164,7 @@ impl SimpleSmaCrossStrategy {
             Err(_) => return,
         };
 
+        self.balance.next();
         let dt: DateTime<Utc> = self.signal.offset().into();
         // println!("signal offset: {:?}", dt);
         let signal = self.signal.next();

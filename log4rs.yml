@@ -12,8 +12,8 @@ root:
 
 loggers:
   strategy::strategy:
-    # level: debug
-    level: info
+    level: debug
+    # level: info
 
   # strategy::indicator:
   #   level: trace
