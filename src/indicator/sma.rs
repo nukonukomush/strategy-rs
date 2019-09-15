@@ -24,20 +24,44 @@ where
     type Val = I::Val;
 }
 
+macro_rules! calc_sma {
+    ($v:expr, $seq:ident, $self:ident) => {{
+        let begin = $seq + 1 - ($self.period as i64);
+        let mut sum = try_value!($v);
+        let mut tmp = $seq - 1;
+        while tmp >= begin {
+            let v = try_value!($self.source.value(tmp));
+            sum += v;
+            tmp = tmp - 1;
+        }
+        Fixed(InRange(sum / $self.period as f64))
+    }};
+}
+
 impl<I> FuncIndicator for Sma<I>
 where
     I: FuncIndicator<Val = f64>,
 {
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
-        let mut sum = 0.0;
-        let begin = seq + 1 - (self.period as i64);
-        let mut tmp = seq;
-        while tmp >= begin {
-            let v = try_value!(self.source.value(tmp));
-            sum += v;
-            tmp = tmp - 1;
-        }
-        Fixed(InRange(sum / self.period as f64))
+        calc_sma!(self.source.value(seq), seq, self)
+        // let begin = seq + 1 - (self.period as i64);
+        // let mut sum = try_value!(self.source.value(seq));
+        // let mut tmp = seq - 1;
+        // while tmp >= begin {
+        //     let v = try_value!(self.source.value(tmp));
+        //     sum += v;
+        //     tmp = tmp - 1;
+        // }
+        // Fixed(InRange(sum / self.period as f64))
+    }
+}
+
+impl<I> Provisional for Sma<I>
+where
+    I: FuncIndicator<Val = f64> + Provisional<Val = f64>,
+{
+    fn provisional_value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        calc_sma!(self.source.provisional_value(seq), seq, self)
     }
 }
 
@@ -117,5 +141,27 @@ mod tests {
 
         let result = (0..5).map(|i| sma.value(offset + i)).collect::<Vec<_>>();
         assert_eq!(result, expect);
+    }
+
+    #[test]
+    fn test_sma_p() {
+        let offset = Time::<S5>::new(0);
+        let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let expect = vec![
+            Fixed(OutOfRange),
+            Fixed(OutOfRange),
+            Fixed(InRange(2.0)),
+            Fixed(InRange(3.0)),
+            Fixed(InRange(4.0)),
+        ];
+        let source = ProvisionalExt::new(VecIndicator::new(offset, source)).into_sync_ptr();
+        let sma = Sma::new(source.clone(), 3);
+
+        let result = (0..5).map(|i| sma.value(offset + i)).collect::<Vec<_>>();
+        assert_eq!(result, expect);
+
+        source.borrow_mut().set_provisional_value(9.0);
+        assert_eq!(sma.value(offset + 5), NotFixed);
+        assert_eq!(sma.provisional_value(offset + 5), Fixed(InRange(6.0)));
     }
 }

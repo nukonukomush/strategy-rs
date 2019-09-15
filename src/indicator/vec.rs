@@ -47,6 +47,13 @@ where
     }
 }
 
+// impl<S, V> FuncIndicator for VecIndicator<S, V>
+// where
+//     V: Clone + std::fmt::Debug,
+//     S: Sequence,
+// {
+// }
+
 #[cfg(feature = "ffi")]
 mod ffi {
     use super::*;

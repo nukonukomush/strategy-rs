@@ -33,6 +33,9 @@ pub struct SimpleSmaCrossStrategy {
     mid_close: Rc<RefCell<Storage<Time<S5>, f64>>>,
     bid_close: Rc<RefCell<Storage<Time<S5>, f64>>>,
     ask_close: Rc<RefCell<Storage<Time<S5>, f64>>>,
+    // mid_close: Rc<RefCell<VecIndicator<Time<S5>, Option<f64>>>>,
+    // bid_close: Rc<RefCell<VecIndicator<Time<S5>, Option<f64>>>>,
+    // ask_close: Rc<RefCell<VecIndicator<Time<S5>, Option<f64>>>>,
     bid_close_cmpl: Rc<RefCell<dyn FuncIndicator<Seq = Time<S5>, Val = f64>>>,
     ask_close_cmpl: Rc<RefCell<dyn FuncIndicator<Seq = Time<S5>, Val = f64>>>,
     transaction: Rc<RefCell<VecIndicator<TransactionId, SimpleTransaction>>>,
@@ -49,10 +52,18 @@ impl SimpleSmaCrossStrategy {
         let mid_close = Storage::new(time_offset).into_sync_ptr();
         let bid_close = Storage::new(time_offset).into_sync_ptr();
         let ask_close = Storage::new(time_offset).into_sync_ptr();
+        // let mid_close = VecIndicator::new(time_offset, Vec::with_capacity(1000)).into_sync_ptr();
+        // let bid_close = VecIndicator::new(time_offset, Vec::with_capacity(1000)).into_sync_ptr();
+        // let ask_close = VecIndicator::new(time_offset, Vec::with_capacity(1000)).into_sync_ptr();
 
-        let mid_close_cmpl = ComplementWithLastValue::new(mid_close.clone(), 10).into_sync_ptr();
-        let bid_close_cmpl = ComplementWithLastValue::new(bid_close.clone(), 10).into_sync_ptr();
-        let ask_close_cmpl = ComplementWithLastValue::new(ask_close.clone(), 10).into_sync_ptr();
+        let mid_close_cmpl = ComplementWithLastValue::new(mid_close.clone(), 100).into_sync_ptr();
+        let bid_close_cmpl = ComplementWithLastValue::new(bid_close.clone(), 100).into_sync_ptr();
+        let ask_close_cmpl = ComplementWithLastValue::new(ask_close.clone(), 100).into_sync_ptr();
+        // let mid_close_cmpl_2 = mid_close
+        //     .clone()
+        //     .map(|v| v.or(Some(0.0)).unwrap())
+        //     .when_not_fixed(|| Fixed(InRange(0.0)))
+        //     .into_sync_ptr();
 
         let sma_short = Sma::new(mid_close_cmpl.clone(), 25);
         let sma_long = Sma::new(mid_close_cmpl.clone(), 75);
@@ -92,7 +103,8 @@ impl SimpleSmaCrossStrategy {
                 info!("balance: {:?}", sum);
             }
             sum
-        }).into_sync_ptr();
+        })
+        .into_sync_ptr();
 
         let signal = sma_cross
             .clone()
@@ -145,6 +157,24 @@ impl SimpleSmaCrossStrategy {
             Err(_) => panic!("invalid time"),
         }
     }
+
+    // pub fn update_source(
+    //     &mut self,
+    //     time: DateTime<Utc>,
+    //     mid_close: Option<f64>,
+    //     bid_close: Option<f64>,
+    //     ask_close: Option<f64>,
+    // ) {
+    //     match <Time<S5>>::try_from(time) {
+    //         Ok(t) => {
+    //             // println!("{:?},{:?},{:?}", mid_close, bid_close, ask_close);
+    //             self.mid_close.borrow_mut().add(mid_close);
+    //             self.bid_close.borrow_mut().add(bid_close);
+    //             self.ask_close.borrow_mut().add(ask_close);
+    //         }
+    //         Err(_) => panic!("invalid time"),
+    //     }
+    // }
 
     fn next_tid(&mut self) -> TransactionId {
         let tid = self.tid_offset;

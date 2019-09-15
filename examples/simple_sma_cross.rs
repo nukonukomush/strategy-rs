@@ -13,7 +13,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
 
     info!("start load data");
-    let data = fs::read_to_string("./examples/data/EUR_USD_2019-01-01_2019-01-02.json")?;
+    let data = fs::read_to_string("./examples/data/EUR_USD_2019-01-01_2019-02-01.json")?;
+    // let data = fs::read_to_string("./examples/data/EUR_USD_2019-01-01_2019-01-02.json")?;
     // println!("{}", data);
     let data: serde_json::Value = serde_json::from_str(data.as_str())?;
     info!("finish load data");
@@ -28,9 +29,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // );
     // println!("{:?}", v);
 
-    let start = "2019-01-01T22:00:00Z".parse::<DateTime<Utc>>().unwrap();
-    // let st_start = "2019-01-01T23:00:00Z".parse::<DateTime<Utc>>().unwrap();
-    let end = "2019-01-02T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
+    // let start = "2019-01-01T22:00:00Z".parse::<DateTime<Utc>>().unwrap();
+    // let end = "2019-01-02T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
+    let start = "2019-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
+    let end = "2019-02-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap();
     let start = Time::<S5>::new(start.timestamp());
     // let st_start = Time::<S5>::new(st_start.timestamp());
     let end = Time::<S5>::new(end.timestamp());
@@ -63,6 +65,9 @@ pub fn update_source(
     let mid_close = get_value_from_data(data, "S5", dt_s.as_str(), "EUR_USD", "mid", "close")?;
     let bid_close = get_value_from_data(data, "S5", dt_s.as_str(), "EUR_USD", "bid", "close")?;
     let ask_close = get_value_from_data(data, "S5", dt_s.as_str(), "EUR_USD", "ask", "close")?;
+    // let mid_close = get_value_from_data(data, "S5", dt_s.as_str(), "EUR_USD", "mid", "close");
+    // let bid_close = get_value_from_data(data, "S5", dt_s.as_str(), "EUR_USD", "bid", "close");
+    // let ask_close = get_value_from_data(data, "S5", dt_s.as_str(), "EUR_USD", "ask", "close");
     strategy.update_source(dt, mid_close, bid_close, ask_close);
     Some(())
 }

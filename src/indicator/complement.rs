@@ -1,5 +1,6 @@
 use super::*;
 use crate::library::lru_cache::LRUCache;
+use log::*;
 use std::cell::RefCell;
 use MaybeFixed::*;
 use MaybeInRange::*;
@@ -62,6 +63,7 @@ where
                     Fixed(v) => self.set_cache(seq, v),
                     NotFixed => panic!("value is not fixed"),
                 };
+                // info!("value: {:?}", value);
                 value
             }
         }

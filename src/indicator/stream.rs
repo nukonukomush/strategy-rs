@@ -36,6 +36,7 @@ where
     I: FuncIndicator,
     F: Fn(I::Val) -> V,
 {
+    #[inline]
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         self.source.value(seq).map(|v| v.map(|v| (self.func)(v)))
     }
@@ -47,55 +48,234 @@ where
     I: IterIndicator,
     F: FnMut(I::Val) -> V,
 {
+    #[inline]
     fn next(&mut self) -> MaybeValue<Self::Val> {
         self.source.next().map(|v| v.map(|v| (self.func)(v)))
     }
 
+    #[inline]
     fn offset(&self) -> Self::Seq {
         self.source.offset()
     }
 }
 
-// TODO: then は使わないかも？けす
-// pub struct Then<S, V1, V2, I, F> {
-//     source: I,
-//     func: F,
-//     p1: std::marker::PhantomData<S>,
-//     p2: std::marker::PhantomData<V1>,
-//     p3: std::marker::PhantomData<V2>,
-// }
+pub struct Then<I, F> {
+    source: I,
+    func: F,
+}
 
-// impl<S, V1, V2, I, F> Then<S, V1, V2, I, F> {
-//     pub fn new(source: I, func: F) -> Self {
-//         Self {
-//             source: source,
-//             func: func,
-//             p1: std::marker::PhantomData,
-//             p2: std::marker::PhantomData,
-//             p3: std::marker::PhantomData,
-//         }
-//     }
-// }
+impl<I, F> Then<I, F> {
+    pub fn new(source: I, func: F) -> Self {
+        Self {
+            source: source,
+            func: func,
+        }
+    }
+}
 
-// impl<S, V1, V2, I, F> Indicator<S, V2> for Then<S, V1, V2, I, F>
-// where
-//     I: Indicator<S, V1>,
-//     F: Fn(MaybeValue<V1>) -> MaybeValue<V2>,
-// {
-//     fn granularity(&self) -> S {
-//         self.source.granularity()
-//     }
-// }
+impl<V, I, F> Indicator for Then<I, F>
+where
+    V: std::fmt::Debug,
+    I: Indicator,
+    F: FnMut(MaybeValue<I::Val>) -> MaybeValue<V>,
+{
+    type Seq = I::Seq;
+    type Val = V;
+}
 
-// impl<S, V1, V2, I, F> FuncIndicator<S, V2> for Then<S, V1, V2, I, F>
-// where
-//     I: FuncIndicator<S, V1>,
-//     F: Fn(MaybeValue<V1>) -> MaybeValue<V2>,
-// {
-//     fn value(&self, seq: S) -> MaybeValue<V2> {
-//         (self.func)(self.source.value(seq))
-//     }
-// }
+impl<V, I, F> FuncIndicator for Then<I, F>
+where
+    V: std::fmt::Debug,
+    I: FuncIndicator,
+    F: Fn(MaybeValue<I::Val>) -> MaybeValue<V>,
+{
+    #[inline]
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        (self.func)(self.source.value(seq))
+    }
+}
+
+impl<V, I, F> IterIndicator for Then<I, F>
+where
+    V: std::fmt::Debug,
+    I: IterIndicator,
+    F: FnMut(MaybeValue<I::Val>) -> MaybeValue<V>,
+{
+    #[inline]
+    fn next(&mut self) -> MaybeValue<Self::Val> {
+        (self.func)(self.source.next())
+    }
+
+    #[inline]
+    fn offset(&self) -> Self::Seq {
+        self.source.offset()
+    }
+}
+
+pub struct AndThen<I, F> {
+    source: I,
+    func: F,
+}
+
+impl<I, F> AndThen<I, F> {
+    pub fn new(source: I, func: F) -> Self {
+        Self {
+            source: source,
+            func: func,
+        }
+    }
+}
+
+impl<V, I, F> Indicator for AndThen<I, F>
+where
+    V: std::fmt::Debug,
+    I: Indicator,
+    F: FnMut(I::Val) -> MaybeValue<V>,
+{
+    type Seq = I::Seq;
+    type Val = V;
+}
+
+impl<V, I, F> FuncIndicator for AndThen<I, F>
+where
+    V: std::fmt::Debug,
+    I: FuncIndicator,
+    F: Fn(I::Val) -> MaybeValue<V>,
+{
+    #[inline]
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        (self.func)(try_value!(self.source.value(seq)))
+    }
+}
+
+impl<V, I, F> IterIndicator for AndThen<I, F>
+where
+    V: std::fmt::Debug,
+    I: IterIndicator,
+    F: FnMut(I::Val) -> MaybeValue<V>,
+{
+    #[inline]
+    fn next(&mut self) -> MaybeValue<Self::Val> {
+        (self.func)(try_value!(self.source.next()))
+    }
+
+    #[inline]
+    fn offset(&self) -> Self::Seq {
+        self.source.offset()
+    }
+}
+
+pub struct WhenNotFixed<I, F> {
+    source: I,
+    func: F,
+}
+
+impl<I, F> WhenNotFixed<I, F> {
+    pub fn new(source: I, func: F) -> Self {
+        Self {
+            source: source,
+            func: func,
+        }
+    }
+}
+
+impl<I, F> Indicator for WhenNotFixed<I, F>
+where
+    I: Indicator,
+    F: FnMut() -> MaybeValue<I::Val>,
+{
+    type Seq = I::Seq;
+    type Val = I::Val;
+}
+
+impl<I, F> FuncIndicator for WhenNotFixed<I, F>
+where
+    I: FuncIndicator,
+    F: Fn() -> MaybeValue<I::Val>,
+{
+    #[inline]
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        match self.source.value(seq) {
+            NotFixed => (self.func)(),
+            other => other,
+        }
+    }
+}
+
+impl<I, F> IterIndicator for WhenNotFixed<I, F>
+where
+    I: IterIndicator,
+    F: FnMut() -> MaybeValue<I::Val>,
+{
+    #[inline]
+    fn next(&mut self) -> MaybeValue<Self::Val> {
+        match self.source.next() {
+            NotFixed => (self.func)(),
+            other => other,
+        }
+    }
+
+    #[inline]
+    fn offset(&self) -> Self::Seq {
+        self.source.offset()
+    }
+}
+
+pub struct WhenOutOfRange<I, F> {
+    source: I,
+    func: F,
+}
+
+impl<I, F> WhenOutOfRange<I, F> {
+    pub fn new(source: I, func: F) -> Self {
+        Self {
+            source: source,
+            func: func,
+        }
+    }
+}
+
+impl<I, F> Indicator for WhenOutOfRange<I, F>
+where
+    I: Indicator,
+    F: FnMut() -> MaybeValue<I::Val>,
+{
+    type Seq = I::Seq;
+    type Val = I::Val;
+}
+
+impl<I, F> FuncIndicator for WhenOutOfRange<I, F>
+where
+    I: FuncIndicator,
+    F: Fn() -> MaybeValue<I::Val>,
+{
+    #[inline]
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        match self.source.value(seq) {
+            Fixed(OutOfRange) => (self.func)(),
+            other => other,
+        }
+    }
+}
+
+impl<I, F> IterIndicator for WhenOutOfRange<I, F>
+where
+    I: IterIndicator,
+    F: FnMut() -> MaybeValue<I::Val>,
+{
+    #[inline]
+    fn next(&mut self) -> MaybeValue<Self::Val> {
+        match self.source.next() {
+            Fixed(OutOfRange) => (self.func)(),
+            other => other,
+        }
+    }
+
+    #[inline]
+    fn offset(&self) -> Self::Seq {
+        self.source.offset()
+    }
+}
 
 pub struct FuncZip<I1, I2> {
     source_1: I1,
@@ -125,6 +305,7 @@ where
     I1: FuncIndicator,
     I2: FuncIndicator<Seq = I1::Seq>,
 {
+    #[inline]
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         let v1 = try_value!(self.source_1.value(seq));
         let v2 = try_value!(self.source_2.value(seq));
@@ -169,6 +350,7 @@ where
     I2: IterIndicator<Seq = I1::Seq, Val = V2>,
 {
     // TODO: not use clone
+    #[inline]
     fn next(&mut self) -> MaybeValue<Self::Val> {
         // trace!("[next start] offset: {:?}", self.offset());
         if self.value_1.is_not_fixed() {
@@ -205,6 +387,7 @@ where
         // ret
     }
 
+    #[inline]
     fn offset(&self) -> Self::Seq {
         self.source_1.offset()
     }
@@ -225,6 +408,7 @@ where
     I: IterIndicator,
 {
     type Item = I::Val;
+    #[inline]
     fn next(&mut self) -> Option<I::Val> {
         match self.source.next() {
             Fixed(InRange(v)) => Some(v),
@@ -261,12 +445,14 @@ where
     S: Sequence,
     I: FuncIndicator<Seq = S>,
 {
+    #[inline]
     fn next(&mut self) -> MaybeValue<Self::Val> {
         let v = try_fixed!(self.source.value(self.offset));
         self.offset = self.offset + 1;
         Fixed(v)
     }
 
+    #[inline]
     fn offset(&self) -> Self::Seq {
         self.offset
     }

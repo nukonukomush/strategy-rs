@@ -131,83 +131,6 @@ macro_rules! try_value {
 
 pub type MaybeValue<T> = MaybeFixed<MaybeInRange<T>>;
 
-// impl<V> Default for MaybeValue<V> {
-//     #[inline]
-//     fn default() -> MaybeValue<V> {
-//         MaybeValue::BeforeRange
-//     }
-// }
-
-// impl<V> MaybeValue<V> {
-//     pub fn map<T, F: FnOnce(V) -> T>(self, f: F) -> MaybeValue<T> {
-//         match self {
-//             MaybeValue::Value(x) => MaybeValue::Value(f(x)),
-//             MaybeValue::AfterRange => MaybeValue::AfterRange,
-//             MaybeValue::BeforeRange => MaybeValue::BeforeRange,
-//         }
-//     }
-
-//     pub fn unwrap(self) -> V {
-//         match self {
-//             MaybeValue::Value(v) => v,
-//             MaybeValue::AfterRange => panic!("value is after range"),
-//             MaybeValue::BeforeRange => panic!("value is before range"),
-//         }
-//     }
-
-//     pub fn is_value(&self) -> bool {
-//         match self {
-//             MaybeValue::Value(_) => true,
-//             _ => false,
-//         }
-//     }
-
-//     pub fn is_before_range(&self) -> bool {
-//         match self {
-//             MaybeValue::BeforeRange => true,
-//             _ => false,
-//         }
-//     }
-
-//     pub fn is_after_range(&self) -> bool {
-//         match self {
-//             MaybeValue::AfterRange => true,
-//             _ => false,
-//         }
-//     }
-
-//     // pub fn take(&mut self) -> V {
-//     //     match self {
-//     //         MaybeValue::Value(v) => {
-//     //             let v = v;
-//     //             *self =
-//     //         },
-//     //         MaybeValue::AfterRange => panic!("value is after range"),
-//     //         MaybeValue::BeforeRange => panic!("value is before range"),
-//     //     }
-//     // }
-// }
-
-// impl<V> Into<Option<V>> for MaybeValue<V> {
-//     fn into(self) -> Option<V> {
-//         match self {
-//             MaybeValue::Value(x) => Some(x),
-//             MaybeValue::AfterRange => None,
-//             MaybeValue::BeforeRange => None,
-//         }
-//     }
-// }
-
-// macro_rules! try_value {
-//     ($expr:expr) => {
-//         match $expr {
-//             MaybeValue::Value(v) => v,
-//             MaybeValue::AfterRange => return MaybeValue::AfterRange,
-//             MaybeValue::BeforeRange => return MaybeValue::BeforeRange,
-//         }
-//     };
-// }
-
 impl<V> AbsDiffEq for MaybeFixed<V>
 where
     V: AbsDiffEq,
@@ -308,6 +231,38 @@ pub trait FuncIndicator: Indicator {
         stream::Map::new(self, f)
     }
 
+    fn then<V, F>(self, f: F) -> stream::Then<Self, F>
+    where
+        Self: Sized,
+        F: Fn(MaybeValue<Self::Val>) -> MaybeValue<V>,
+    {
+        stream::Then::new(self, f)
+    }
+
+    fn and_then<V, F>(self, f: F) -> stream::AndThen<Self, F>
+    where
+        Self: Sized,
+        F: Fn(Self::Val) -> MaybeValue<V>,
+    {
+        stream::AndThen::new(self, f)
+    }
+
+    fn when_not_fixed<V, F>(self, f: F) -> stream::WhenNotFixed<Self, F>
+    where
+        Self: Sized,
+        F: Fn() -> MaybeValue<V>,
+    {
+        stream::WhenNotFixed::new(self, f)
+    }
+
+    fn when_out_of_range<V, F>(self, f: F) -> stream::WhenOutOfRange<Self, F>
+    where
+        Self: Sized,
+        F: Fn() -> MaybeValue<V>,
+    {
+        stream::WhenOutOfRange::new(self, f)
+    }
+
     fn zip<I>(self, other: I) -> stream::FuncZip<Self, I>
     where
         Self: Sized,
@@ -344,6 +299,38 @@ pub trait IterIndicator: Indicator {
         stream::Map::new(self, f)
     }
 
+    fn then<V, F>(self, f: F) -> stream::Then<Self, F>
+    where
+        Self: Sized,
+        F: FnMut(MaybeValue<Self::Val>) -> MaybeValue<V>,
+    {
+        stream::Then::new(self, f)
+    }
+
+    fn and_then<V, F>(self, f: F) -> stream::AndThen<Self, F>
+    where
+        Self: Sized,
+        F: FnMut(Self::Val) -> MaybeValue<V>,
+    {
+        stream::AndThen::new(self, f)
+    }
+
+    fn when_not_fixed<V, F>(self, f: F) -> stream::WhenNotFixed<Self, F>
+    where
+        Self: Sized,
+        F: FnMut() -> MaybeValue<V>,
+    {
+        stream::WhenNotFixed::new(self, f)
+    }
+
+    fn when_out_of_range<V, F>(self, f: F) -> stream::WhenOutOfRange<Self, F>
+    where
+        Self: Sized,
+        F: FnMut() -> MaybeValue<V>,
+    {
+        stream::WhenOutOfRange::new(self, f)
+    }
+
     fn zip<I>(self, other: I) -> stream::IterZip<Self::Val, I::Val, Self, I>
     where
         Self: Sized,
@@ -375,32 +362,82 @@ pub trait IterIndicator: Indicator {
     // }
 }
 
-pub trait Provisional<S, V>
-where
-    S: Sequence,
-{
-    fn provisional_value(&self, seq: S) -> MaybeValue<V>;
+pub trait Provisional: Indicator {
+    fn provisional_value(&self, seq: Self::Seq) -> MaybeValue<Self::Val>;
 }
 
-// impl<S, V> Indicator<S, V> for &dyn Indicator<S, V> {
-//     #[allow(unconditional_recursion)]
-//     fn value(&self, time: Sequence) -> Option<V> {
-//         self.value(time)
-//     }
+pub struct ProvisionalExt<V, I> {
+    provisional_value: Option<V>,
+    indicator: I,
+}
 
-//     #[allow(unconditional_recursion)]
-//     fn granularity(&self) -> G {
-//         self.granularity()
-//     }
-// }
-//
+impl<V, I> ProvisionalExt<V, I> {
+    pub fn new(indicator: I) -> Self {
+        Self {
+            provisional_value: None,
+            indicator: indicator,
+        }
+    }
 
-// impl<S, V, I> Indicator<S, V> for RefCell<I>
-// where
-//     S: Sequence,
-//     I: Indicator<S, V>,
-// {
-// }
+    pub fn set_provisional_value(&mut self, v: V) {
+        self.provisional_value = Some(v)
+    }
+
+    pub fn rm_provisional_value(&mut self) {
+        self.provisional_value = None
+    }
+
+    pub fn internal_mut(&mut self) -> &mut I {
+        &mut self.indicator
+    }
+}
+
+impl<V, I> Indicator for ProvisionalExt<V, I>
+where
+    V: std::fmt::Debug,
+    I: Indicator<Val = V>,
+{
+    type Seq = I::Seq;
+    type Val = I::Val;
+}
+
+impl<V, I> FuncIndicator for ProvisionalExt<V, I>
+where
+    V: std::fmt::Debug,
+    I: FuncIndicator<Val = V>,
+{
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        self.indicator.value(seq)
+    }
+}
+
+impl<V, I> IterIndicator for ProvisionalExt<V, I>
+where
+    V: std::fmt::Debug,
+    I: IterIndicator<Val = V>,
+{
+    fn next(&mut self) -> MaybeValue<Self::Val> {
+        self.indicator.next()
+    }
+
+    fn offset(&self) -> Self::Seq {
+        self.indicator.offset()
+    }
+}
+
+impl<V, I> Provisional for ProvisionalExt<V, I>
+where
+    V: Clone + std::fmt::Debug,
+    I: Indicator<Val = V>,
+{
+    fn provisional_value(&self, _: Self::Seq) -> MaybeValue<Self::Val> {
+        match &self.provisional_value {
+            Some(v) => MaybeFixed::Fixed(MaybeInRange::InRange(v.clone())),
+            None => MaybeFixed::NotFixed,
+        }
+    }
+}
+
 impl<I> Indicator for RefCell<I>
 where
     I: Indicator,
@@ -413,8 +450,18 @@ impl<I> FuncIndicator for RefCell<I>
 where
     I: FuncIndicator,
 {
+    #[inline]
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         (*self.borrow()).value(seq)
+    }
+}
+
+impl<I> Provisional for RefCell<I>
+where
+    I: Provisional,
+{
+    fn provisional_value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        (*self.borrow()).provisional_value(seq)
     }
 }
 
@@ -430,8 +477,18 @@ impl<I> FuncIndicator for Rc<I>
 where
     I: FuncIndicator,
 {
+    #[inline]
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         self.deref().value(seq)
+    }
+}
+
+impl<I> Provisional for Rc<I>
+where
+    I: Provisional,
+{
+    fn provisional_value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        self.deref().provisional_value(seq)
     }
 }
 
@@ -447,8 +504,18 @@ impl<I> FuncIndicator for Box<I>
 where
     I: FuncIndicator,
 {
+    #[inline]
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         self.deref().value(seq)
+    }
+}
+
+impl<I> Provisional for Box<I>
+where
+    I: Provisional,
+{
+    fn provisional_value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        self.deref().provisional_value(seq)
     }
 }
 
@@ -456,10 +523,12 @@ impl<I> IterIndicator for Box<I>
 where
     I: IterIndicator,
 {
+    #[inline]
     fn next(&mut self) -> MaybeValue<Self::Val> {
         self.as_mut().next()
     }
 
+    #[inline]
     fn offset(&self) -> Self::Seq {
         self.as_ref().offset()
     }
