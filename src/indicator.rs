@@ -895,4 +895,5 @@ pub mod stream;
 pub mod trade;
 pub mod transaction;
 pub mod vec;
+pub mod envelope;
 // pub mod trailing_stop;
