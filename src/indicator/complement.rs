@@ -52,20 +52,18 @@ where
         match cache {
             Some(InRange(v)) => Fixed(InRange(v)),
             Some(OutOfRange) => Fixed(OutOfRange),
-            None => {
-                let value = match self.source.value(seq) {
-                    Fixed(InRange(Some(v))) => Fixed(InRange(v)),
-                    Fixed(InRange(None)) => self.value(seq - 1),
-                    Fixed(OutOfRange) => Fixed(OutOfRange),
-                    NotFixed => self.value(seq - 1),
-                };
-                match value.clone() {
-                    Fixed(v) => self.set_cache(seq, v),
-                    NotFixed => panic!("value is not fixed"),
-                };
-                // info!("value: {:?}", value);
-                value
-            }
+            None => self
+                .source
+                .value(seq)
+                .and_then(|v| match v {
+                    Some(v) => Fixed(InRange(v)),
+                    None => self.value(seq - 1),
+                })
+                .when_not_fixed(|| self.value(seq - 1))
+                .map(|v| {
+                    self.set_cache(seq, v.clone());
+                    v
+                }),
         }
     }
 }

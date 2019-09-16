@@ -13,7 +13,17 @@ pub enum MaybeFixed<T> {
     NotFixed,
 }
 
+macro_rules! try_fixed {
+    ($expr:expr) => {
+        match $expr {
+            MaybeFixed::Fixed(v) => v,
+            MaybeFixed::NotFixed => return MaybeFixed::NotFixed,
+        }
+    };
+}
+
 impl<V> MaybeFixed<V> {
+    #[inline]
     pub fn map<T, F: FnOnce(V) -> T>(self, f: F) -> MaybeFixed<T> {
         match self {
             MaybeFixed::Fixed(x) => MaybeFixed::Fixed(f(x)),
@@ -21,6 +31,7 @@ impl<V> MaybeFixed<V> {
         }
     }
 
+    #[inline]
     pub fn unwrap(self) -> V {
         match self {
             MaybeFixed::Fixed(v) => v,
@@ -28,6 +39,7 @@ impl<V> MaybeFixed<V> {
         }
     }
 
+    #[inline]
     pub fn is_fixed(&self) -> bool {
         match self {
             MaybeFixed::Fixed(_) => true,
@@ -35,15 +47,24 @@ impl<V> MaybeFixed<V> {
         }
     }
 
+    #[inline]
     pub fn is_not_fixed(&self) -> bool {
         match self {
             MaybeFixed::Fixed(_) => false,
             MaybeFixed::NotFixed => true,
         }
     }
+
+    #[inline]
+    pub fn zip<V2>(self, other: MaybeFixed<V2>) -> MaybeFixed<(V, V2)> {
+        let v1 = try_fixed!(self);
+        let v2 = try_fixed!(other);
+        MaybeFixed::Fixed((v1, v2))
+    }
 }
 
 impl<V> MaybeFixed<MaybeInRange<V>> {
+    #[inline]
     pub fn map2<T, F: FnOnce(V) -> T>(self, f: F) -> MaybeFixed<MaybeInRange<T>> {
         match self {
             MaybeFixed::Fixed(MaybeInRange::InRange(x)) => {
@@ -55,15 +76,47 @@ impl<V> MaybeFixed<MaybeInRange<V>> {
             MaybeFixed::NotFixed => MaybeFixed::NotFixed,
         }
     }
-}
 
-macro_rules! try_fixed {
-    ($expr:expr) => {
-        match $expr {
-            MaybeFixed::Fixed(v) => v,
-            MaybeFixed::NotFixed => return MaybeFixed::NotFixed,
+    #[inline]
+    pub fn zip2<T>(self, other: MaybeFixed<MaybeInRange<T>>) -> MaybeFixed<MaybeInRange<(V, T)>> {
+        self.and_then(|v1| other.map2(|v2| (v1, v2)))
+    }
+
+    #[inline]
+    pub fn and_then<T, F: FnOnce(V) -> MaybeFixed<MaybeInRange<T>>>(
+        self,
+        f: F,
+    ) -> MaybeFixed<MaybeInRange<T>> {
+        match self {
+            MaybeFixed::Fixed(MaybeInRange::InRange(x)) => f(x),
+            MaybeFixed::Fixed(MaybeInRange::OutOfRange) => {
+                MaybeFixed::Fixed(MaybeInRange::OutOfRange)
+            }
+            MaybeFixed::NotFixed => MaybeFixed::NotFixed,
         }
-    };
+    }
+
+    #[inline]
+    pub fn when_not_fixed<F: FnOnce() -> MaybeFixed<MaybeInRange<V>>>(
+        self,
+        f: F,
+    ) -> MaybeFixed<MaybeInRange<V>> {
+        match self {
+            MaybeFixed::NotFixed => f(),
+            other => other,
+        }
+    }
+
+    #[inline]
+    pub fn when_out_of_range<F: FnOnce() -> MaybeFixed<MaybeInRange<V>>>(
+        self,
+        f: F,
+    ) -> MaybeFixed<MaybeInRange<V>> {
+        match self {
+            MaybeFixed::Fixed(MaybeInRange::OutOfRange) => f(),
+            other => other,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -82,6 +135,7 @@ macro_rules! try_in_range {
 }
 
 impl<V> MaybeInRange<V> {
+    #[inline]
     pub fn map<T, F: FnOnce(V) -> T>(self, f: F) -> MaybeInRange<T> {
         match self {
             MaybeInRange::InRange(x) => MaybeInRange::InRange(f(x)),
@@ -89,6 +143,7 @@ impl<V> MaybeInRange<V> {
         }
     }
 
+    #[inline]
     pub fn unwrap(self) -> V {
         match self {
             MaybeInRange::InRange(v) => v,
@@ -96,6 +151,7 @@ impl<V> MaybeInRange<V> {
         }
     }
 
+    #[inline]
     pub fn is_in_range(&self) -> bool {
         match self {
             MaybeInRange::InRange(_) => true,
@@ -103,6 +159,7 @@ impl<V> MaybeInRange<V> {
         }
     }
 
+    #[inline]
     pub fn is_out_of_range(&self) -> bool {
         match self {
             MaybeInRange::InRange(_) => false,
@@ -110,6 +167,7 @@ impl<V> MaybeInRange<V> {
         }
     }
 
+    #[inline]
     pub fn zip<V2>(self, other: MaybeInRange<V2>) -> MaybeInRange<(V, V2)> {
         let v1 = try_in_range!(self);
         let v2 = try_in_range!(other);
@@ -887,6 +945,8 @@ pub mod convert_granularity;
 pub mod convert_seq;
 pub mod count;
 pub mod cross;
+pub mod ema;
+pub mod envelope;
 pub mod ordering;
 pub mod slope;
 pub mod sma;
@@ -895,5 +955,4 @@ pub mod stream;
 pub mod trade;
 pub mod transaction;
 pub mod vec;
-pub mod envelope;
 // pub mod trailing_stop;
