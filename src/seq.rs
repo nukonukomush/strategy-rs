@@ -77,3 +77,38 @@ impl From<i64> for TransactionId {
         TransactionId(i)
     }
 }
+
+#[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
+pub struct TickId(pub i64);
+
+impl Add<i64> for TickId {
+    type Output = TickId;
+    fn add(self, other: i64) -> Self::Output {
+        TickId(self.0 + other)
+    }
+}
+
+impl Sub<i64> for TickId {
+    type Output = TickId;
+    fn sub(self, other: i64) -> Self::Output {
+        TickId(self.0 - other)
+    }
+}
+
+impl Sequence for TickId {
+    fn distance_from(&self, offset: &Self) -> i64 {
+        self.0 - offset.0
+    }
+}
+
+impl Into<i64> for TickId {
+    fn into(self) -> i64 {
+        self.0
+    }
+}
+
+impl From<i64> for TickId {
+    fn from(i: i64) -> Self {
+        TickId(i)
+    }
+}
