@@ -65,8 +65,8 @@ impl SimpleSmaCrossStrategy {
         //     .when_not_fixed(|| Fixed(InRange(0.0)))
         //     .into_sync_ptr();
 
-        let sma_short = Sma::new(mid_close_cmpl.clone(), 25);
-        let sma_long = Sma::new(mid_close_cmpl.clone(), 75);
+        let sma_short = sma(mid_close_cmpl.clone(), 25);
+        let sma_long = sma(mid_close_cmpl.clone(), 75);
         let sma_cross = Cross::new(sma_short, sma_long).into_sync_ptr();
 
         let transaction = VecIndicator::new(tid_offset, vec![]).into_sync_ptr();

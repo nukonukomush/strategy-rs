@@ -197,7 +197,7 @@ mod tests {
         let accuracy = 0.9;
         let capacity = 100;
         let source = VecIndicator::new(offset, source).into_sync_ptr();
-        let sma = Sma::new(source.clone(), 2).into_sync_ptr();
+        let sma = sma(source.clone(), 2).into_sync_ptr();
         let ema = Ema::new(source, sma.clone(), n_period, accuracy, capacity);
 
         // let expect = [

@@ -342,6 +342,14 @@ pub trait FuncIndicator: Indicator {
     {
         Rc::new(RefCell::new(self))
     }
+
+    fn rolling<V, F>(self, size: usize, f: F) -> rolling::Rolling<Self, F>
+    where
+        Self: Sized,
+        F: Fn(rolling::FixedSizeWindow<Self::Seq, Self>) -> MaybeValue<V>,
+    {
+        rolling::Rolling::new(self, size, f)
+    }
 }
 
 pub trait IterIndicator: Indicator {
@@ -420,82 +428,6 @@ pub trait IterIndicator: Indicator {
     // }
 }
 
-pub trait Provisional: Indicator {
-    fn provisional_value(&self, seq: Self::Seq) -> MaybeValue<Self::Val>;
-}
-
-pub struct ProvisionalExt<V, I> {
-    provisional_value: Option<V>,
-    indicator: I,
-}
-
-impl<V, I> ProvisionalExt<V, I> {
-    pub fn new(indicator: I) -> Self {
-        Self {
-            provisional_value: None,
-            indicator: indicator,
-        }
-    }
-
-    pub fn set_provisional_value(&mut self, v: V) {
-        self.provisional_value = Some(v)
-    }
-
-    pub fn rm_provisional_value(&mut self) {
-        self.provisional_value = None
-    }
-
-    pub fn internal_mut(&mut self) -> &mut I {
-        &mut self.indicator
-    }
-}
-
-impl<V, I> Indicator for ProvisionalExt<V, I>
-where
-    V: std::fmt::Debug,
-    I: Indicator<Val = V>,
-{
-    type Seq = I::Seq;
-    type Val = I::Val;
-}
-
-impl<V, I> FuncIndicator for ProvisionalExt<V, I>
-where
-    V: std::fmt::Debug,
-    I: FuncIndicator<Val = V>,
-{
-    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
-        self.indicator.value(seq)
-    }
-}
-
-impl<V, I> IterIndicator for ProvisionalExt<V, I>
-where
-    V: std::fmt::Debug,
-    I: IterIndicator<Val = V>,
-{
-    fn next(&mut self) -> MaybeValue<Self::Val> {
-        self.indicator.next()
-    }
-
-    fn offset(&self) -> Self::Seq {
-        self.indicator.offset()
-    }
-}
-
-impl<V, I> Provisional for ProvisionalExt<V, I>
-where
-    V: Clone + std::fmt::Debug,
-    I: Indicator<Val = V>,
-{
-    fn provisional_value(&self, _: Self::Seq) -> MaybeValue<Self::Val> {
-        match &self.provisional_value {
-            Some(v) => MaybeFixed::Fixed(MaybeInRange::InRange(v.clone())),
-            None => MaybeFixed::NotFixed,
-        }
-    }
-}
-
 impl<I> Indicator for RefCell<I>
 where
     I: Indicator,
@@ -511,15 +443,6 @@ where
     #[inline]
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         (*self.borrow()).value(seq)
-    }
-}
-
-impl<I> Provisional for RefCell<I>
-where
-    I: Provisional,
-{
-    fn provisional_value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
-        (*self.borrow()).provisional_value(seq)
     }
 }
 
@@ -541,15 +464,6 @@ where
     }
 }
 
-impl<I> Provisional for Rc<I>
-where
-    I: Provisional,
-{
-    fn provisional_value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
-        self.deref().provisional_value(seq)
-    }
-}
-
 impl<I> Indicator for Box<I>
 where
     I: Indicator,
@@ -565,15 +479,6 @@ where
     #[inline]
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
         self.deref().value(seq)
-    }
-}
-
-impl<I> Provisional for Box<I>
-where
-    I: Provisional,
-{
-    fn provisional_value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
-        self.deref().provisional_value(seq)
     }
 }
 
@@ -948,6 +853,7 @@ pub mod cross;
 pub mod ema;
 pub mod envelope;
 pub mod ordering;
+pub mod rolling;
 pub mod slope;
 pub mod sma;
 pub mod storage;
