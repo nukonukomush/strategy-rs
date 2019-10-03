@@ -118,21 +118,21 @@ mod tests {
         assert_eq!(result, expect);
     }
 
-    #[test]
-    fn test_sma() {
-        let offset = Time::<S5>::new(0);
-        let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let expect = vec![
-            Fixed(OutOfRange),
-            Fixed(OutOfRange),
-            Fixed(InRange(2.0)),
-            Fixed(InRange(3.0)),
-            Fixed(InRange(4.0)),
-        ];
-        let source = VecIndicator::new(offset, source.clone());
-        let sum = Rolling::new(source, 3, |w| w.mean());
+    // #[test]
+    // fn test_sma() {
+    //     let offset = Time::<S5>::new(0);
+    //     let source = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+    //     let expect = vec![
+    //         Fixed(OutOfRange),
+    //         Fixed(OutOfRange),
+    //         Fixed(InRange(2.0)),
+    //         Fixed(InRange(3.0)),
+    //         Fixed(InRange(4.0)),
+    //     ];
+    //     let source = VecIndicator::new(offset, source.clone());
+    //     let sum = Rolling::new(source, 3, |w| w.mean());
 
-        let result = (0..5).map(|i| sum.value(offset + i)).collect::<Vec<_>>();
-        assert_eq!(result, expect);
-    }
+    //     let result = (0..5).map(|i| sum.value(offset + i)).collect::<Vec<_>>();
+    //     assert_eq!(result, expect);
+    // }
 }

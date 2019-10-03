@@ -62,6 +62,7 @@ pub mod ffi {
 }
 
 pub mod transaction;
+#[macro_use]
 pub mod indicator;
 pub mod position;
 pub mod seq;

@@ -30,6 +30,10 @@ define_static_granularity!(S10, 10, |t| {
     let dt = Utc.timestamp(t, 0);
     dt.second() % 10 == 0
 });
+define_static_granularity!(M1, 60, |t| {
+    let dt = Utc.timestamp(t, 0);
+    dt.second() == 0
+});
 define_static_granularity!(D1, 60 * 60 * 24, |t| {
     let dt = Utc.timestamp(t, 0);
     dt.hour() == 0 && dt.minute() == 0 && dt.second() == 0

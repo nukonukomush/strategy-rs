@@ -175,6 +175,7 @@ impl<V> MaybeInRange<V> {
     }
 }
 
+#[macro_export]
 macro_rules! try_value {
     ($expr:expr) => {
         match $expr {
@@ -861,4 +862,5 @@ pub mod stream;
 pub mod trade;
 pub mod transaction;
 pub mod vec;
+pub mod tick;
 // pub mod trailing_stop;
