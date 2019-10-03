@@ -5,11 +5,19 @@ use MaybeInRange::*;
 pub trait Window<S, V> {
     fn sum(self) -> MaybeValue<V::Output>
     where
-        V: std::ops::Add<V>;
+        V: std::ops::Add<V> + Default;
 
     fn mean(self) -> MaybeValue<V::Output>
     where
-        V: std::ops::Add<V>;
+        V: std::ops::Add<V> + Default;
+
+    fn lfold<B, F>(self, init: B, f: F) -> MaybeValue<B>
+    where
+        F: FnMut(B, V) -> B;
+
+    fn rfold<B, F>(self, init: B, f: F) -> MaybeValue<B>
+    where
+        F: FnMut(V, B) -> B;
 }
 
 pub struct FixedSizeWindow<'a, S, I: 'a> {
@@ -47,6 +55,34 @@ where
     fn mean(self) -> MaybeValue<f64> {
         let len = self.size as f64;
         self.sum().map2(|v| v / len)
+    }
+
+    fn lfold<B, F>(self, init: B, mut f: F) -> MaybeValue<B>
+    where
+        F: FnMut(B, f64) -> B,
+    {
+        let mut i = self.offset;
+        let mut sum = init;
+        let end = i + self.size as i64;
+        while i < end {
+            sum = f(sum, try_value!(self.source.value(i)));
+            i = i + 1;
+        }
+        Fixed(InRange(sum))
+    }
+
+    fn rfold<B, F>(self, init: B, mut f: F) -> MaybeValue<B>
+    where
+        F: FnMut(f64, B) -> B,
+    {
+        let mut i = self.offset;
+        let mut sum = init;
+        let end = i + self.size as i64;
+        while i < end {
+            sum = f(try_value!(self.source.value(i)), sum);
+            i = i + 1;
+        }
+        Fixed(InRange(sum))
     }
 }
 

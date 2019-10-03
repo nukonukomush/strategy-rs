@@ -7,8 +7,6 @@ use std::rc::Rc;
 use MaybeFixed::*;
 use MaybeInRange::*;
 
-// type Ind<S> = Rc<RefCell<dyn FuncIndicator<Seq = S, Val = f64>>>;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ZoneId(i32);
 
@@ -91,39 +89,59 @@ where
     }
 }
 
-pub struct TimeToId<IV, IT> {
-    values: IV,
-    time: IT,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UpDown {
+    Up,
+    Eq,
+    Down,
 }
 
-impl<IV, IT> TimeToId<IV, IT> {
-    pub fn new(values: IV, time: IT) -> Self {
-        Self {
-            values: values,
-            time: time,
-        }
+use crate::indicator::rolling::*;
+pub fn up_down<S, I>(source: I) -> impl FuncIndicator<Seq = S, Val = UpDown>
+where
+    S: Sequence,
+    I: FuncIndicator<Seq = S, Val = f64>,
+{
+    source.rolling(2, |w| {
+        let diff = try_value!(w.rfold(0.0, |x, acc| x - acc));
+        let ud = if diff > 0.0 {
+            UpDown::Up
+        } else if diff < 0.0 {
+            UpDown::Down
+        } else {
+            UpDown::Eq
+        };
+        Fixed(InRange(ud))
+    })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HigeLength(i32);
+
+pub struct HigeSignal<I> {
+    price: I,
+}
+
+impl<I> HigeSignal<I> {
+    pub fn new(price: I) -> Self {
+        Self { price: price }
     }
 }
 
-impl<T, IV, IT> Indicator for TimeToId<IV, IT>
+impl<I> Indicator for HigeSignal<I>
 where
-    T: Sequence,
-    IV: Indicator<Seq = T>,
-    IT: Indicator<Val = T>,
+    I: Indicator,
 {
-    type Seq = IT::Seq;
-    type Val = IV::Val;
+    type Seq = I::Seq;
+    type Val = HigeLength;
 }
 
-impl<T, IV, IT> FuncIndicator for TimeToId<IV, IT>
+impl<I> FuncIndicator for HigeSignal<I>
 where
-    T: Sequence,
-    IV: FuncIndicator<Seq = T>,
-    IT: FuncIndicator<Val = T>,
+    I: FuncIndicator,
 {
     fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
-        let time = try_value!(self.time.value(seq));
-        self.values.value(time)
+        NotFixed
     }
 }
 
@@ -162,35 +180,58 @@ mod tests {
     }
 
     #[test]
-    fn test_tick() {
-        let offset = Time::<S5>::new(0);
+    fn test_up_down() {
+        use UpDown::*;
+        let offset = TickId(0);
         let expect = vec![
-            Fixed(InRange(1.0)),
-            Fixed(InRange(2.0)),
-            Fixed(InRange(2.0)),
-            Fixed(InRange(4.0)),
-            Fixed(InRange(5.0)),
-            Fixed(InRange(5.0)),
+            Fixed(OutOfRange),
+            Fixed(InRange(Up)),
+            Fixed(InRange(Down)),
+            Fixed(InRange(Down)),
+            Fixed(InRange(Down)),
+            Fixed(InRange(Up)),
+            Fixed(InRange(Up)),
+            Fixed(InRange(Up)),
+            Fixed(InRange(Eq)),
+            Fixed(InRange(Down)),
         ];
 
-        let source = VecIndicator::new(offset, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
-        let time = VecIndicator::new(
-            TickId(0),
-            vec![
-                Time::<S5>::new(0),
-                Time::<S5>::new(5),
-                Time::<S5>::new(5),
-                Time::<S5>::new(15),
-                Time::<S5>::new(20),
-                Time::<S5>::new(20),
-            ],
+        let price = VecIndicator::new(
+            offset,
+            vec![1.0, 1.1, 1.0, 0.9, 0.8, 1.0, 1.1, 1.2, 1.2, 1.0],
         );
 
-        let time_to_tick = TimeToId::new(source, time);
+        let ud = up_down(price);
 
-        let result = (0..6)
-            .map(|i| time_to_tick.value(TickId(i)))
-            .collect::<Vec<_>>();
+        let result = (0..10).map(|i| ud.value(offset + i)).collect::<Vec<_>>();
         assert_eq!(result, expect);
     }
+
+    // // TODO: データ型は要検討
+    // #[test]
+    // fn test_hige() {
+    //     let offset = TickId(0);
+    //     let expect = vec![
+    //         Fixed(OutOfRange),
+    //         Fixed(OutOfRange),
+    //         Fixed(InRange(HigeLength(1))),
+    //         Fixed(InRange(HigeLength(2))),
+    //         Fixed(InRange(HigeLength(3))),
+    //         Fixed(InRange(HigeLength(-1))),
+    //         Fixed(InRange(HigeLength(-2))),
+    //         Fixed(InRange(HigeLength(-3))),
+    //         Fixed(InRange(HigeLength(-3))),
+    //         Fixed(InRange(HigeLength(1))),
+    //     ];
+
+    //     let price = VecIndicator::new(
+    //         offset,
+    //         vec![1.0, 1.1, 1.0, 0.9, 0.8, 1.0, 1.1, 1.2, 1.2, 1.0],
+    //     );
+
+    //     let hige = HigeSignal::new(price);
+
+    //     let result = (0..10).map(|i| hige.value(offset + i)).collect::<Vec<_>>();
+    //     assert_eq!(result, expect);
+    // }
 }
