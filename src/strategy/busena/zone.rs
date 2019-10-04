@@ -7,8 +7,8 @@ use std::rc::Rc;
 use MaybeFixed::*;
 use MaybeInRange::*;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ZoneId(i32);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct ZoneId(pub i32);
 
 pub struct Zone<I1, I2> {
     price: I1,
@@ -146,8 +146,93 @@ where
 }
 
 // TODO: ヒゲ判定作成
-// TODO: python export
-// TODO: python test
+//
+#[cfg(feature = "ffi")]
+mod ffi {
+    use super::*;
+    use crate::granularity::ffi::*;
+    use crate::indicator::ffi::*;
+    use crate::indicator::*;
+    use crate::time::ffi::*;
+
+    type IPtr<S, V> = Ptr<S, ZoneId, Zone<FuncIndicatorPtr<S, V>, FuncIndicatorPtr<S, V>>>;
+
+    // pub unsafe fn new<S, CS, V, CV>(
+    //     price: *mut FuncIndicatorPtr<S, V>,
+    //     positive_lines: *const *mut FuncIndicatorPtr<S, V>,
+    //     positive_lines_length: i32,
+    //     negative_lines: *const *mut FuncIndicatorPtr<S, V>,
+    //     negative_lines_length: i32,
+    // ) -> IPtr<S, V>
+    // where
+    //     S: Sequence + 'static,
+    //     CS: Into<S>,
+    //     V: Clone + std::fmt::Debug + 'static,
+    //     CV: Into<V>,
+    // {
+    //     let price = (*price).clone();
+    //     let positive_lines: &[*mut FuncIndicatorPtr<S, V>] =
+    //         std::slice::from_raw_parts(positive_lines, positive_lines_length as usize);
+    //     let positive_lines = positive_lines
+    //         .iter()
+    //         .map(|cv| cv.clone().into())
+    //         .collect::<Vec<_>>();
+    //     let negative_lines: &[*mut FuncIndicatorPtr<S, V>] =
+    //         std::slice::from_raw_parts(negative_lines, negative_lines_length as usize);
+    //     let negative_lines = negative_lines
+    //         .iter()
+    //         .map(|cv| cv.clone().into())
+    //         .collect::<Vec<_>>();
+    //     let ptr = Zone::new(price, positive_lines, negative_lines).into_sync_ptr();
+    //     Ptr {
+    //         b_ptr: Box::into_raw(Box::new(ptr.clone())),
+    //         f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+    //     }
+    // }
+
+    macro_rules! define_new {
+        ($s:ty, $cs:ty, $v:ty, $cv:ty, $name:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $name(
+                price: *mut FuncIndicatorPtr<$s, $v>,
+                positive_lines: *const *mut FuncIndicatorPtr<$s, $v>,
+                positive_lines_length: i32,
+                negative_lines: *const *mut FuncIndicatorPtr<$s, $v>,
+                negative_lines_length: i32,
+            ) -> IPtr<$s, $v> {
+                // new::<$s, $cs, $v, $cv>(
+                //     price,
+                //     positive_lines,
+                //     positive_lines_length,
+                //     negative_lines,
+                //     negative_lines_length,
+                // )
+                let price = (*price).clone();
+                let positive_lines: &[*mut FuncIndicatorPtr<$s, $v>] =
+                    std::slice::from_raw_parts(positive_lines, positive_lines_length as usize);
+                let positive_lines = positive_lines
+                    .iter()
+                    .map(|cv| (**cv).clone())
+                    .collect::<Vec<FuncIndicatorPtr<_, _>>>();
+                let negative_lines: &[*mut FuncIndicatorPtr<$s, $v>] =
+                    std::slice::from_raw_parts(negative_lines, negative_lines_length as usize);
+                let negative_lines = negative_lines
+                    .iter()
+                    .map(|cv| (**cv).clone())
+                    .collect::<Vec<FuncIndicatorPtr<_, _>>>();
+                let ptr = Zone::new(price, positive_lines, negative_lines).into_sync_ptr();
+                Ptr {
+                    b_ptr: Box::into_raw(Box::new(ptr.clone())),
+                    f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+                }
+            }
+        };
+    }
+
+    define_new!(TickId, i64, f64, f64, zone_new_tick_id_f64);
+
+    define_destroy!(IPtr<TickId, f64>, zone_destroy_tick_id_f64);
+}
 
 #[cfg(test)]
 mod tests {
@@ -157,7 +242,7 @@ mod tests {
     use crate::vec::*;
 
     #[test]
-    fn test_sma() {
+    fn test_zone() {
         let offset = TickId(0);
         let expect = vec![
             Fixed(InRange(ZoneId(0))),

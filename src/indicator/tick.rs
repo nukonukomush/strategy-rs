@@ -81,6 +81,51 @@ mod tests {
     }
 }
 
+#[cfg(feature = "ffi")]
+mod ffi {
+    use super::*;
+    use crate::granularity::ffi::*;
+    use crate::indicator::ffi::*;
+    use crate::time::ffi::*;
+
+    type IPtr<S, V> = Ptr<TickId, V, TimeToId<FuncIndicatorPtr<S, V>, FuncIndicatorPtr<TickId, S>>>;
+
+    pub unsafe fn new<S, CS, V, CV>(
+        values: *mut FuncIndicatorPtr<S, V>,
+        time: *mut FuncIndicatorPtr<TickId, S>,
+    ) -> IPtr<S, V>
+    where
+        S: Sequence + 'static,
+        CS: Into<S>,
+        V: Clone + std::fmt::Debug + 'static,
+        CV: Into<V>,
+    {
+        let values = (*values).clone();
+        let time = (*time).clone();
+        let ptr = TimeToId::new(values, time).into_sync_ptr();
+        Ptr {
+            b_ptr: Box::into_raw(Box::new(ptr.clone())),
+            f_ptr: Box::into_raw(Box::new(FuncIndicatorPtr(ptr))),
+        }
+    }
+
+    macro_rules! define_new {
+        ($s:ty, $cs:ty, $v:ty, $cv:ty, $name:ident) => {
+            #[no_mangle]
+            pub unsafe extern "C" fn $name(
+                values: *mut FuncIndicatorPtr<$s, $v>,
+                time: *mut FuncIndicatorPtr<TickId, $s>,
+            ) -> IPtr<$s, $v> {
+                new::<$s, $cs, $v, $cv>(values, time)
+            }
+        };
+    }
+
+    define_new!(GTime<Var>, CTime, f64, f64, tick_new_tick_id_f64);
+
+    define_destroy!(IPtr<GTime<Var>, f64>, tick_destroy_tick_id_f64);
+}
+
 // #[derive(Clone, Debug)]
 // pub struct Candle {
 //     open: f64,

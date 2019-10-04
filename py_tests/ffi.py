@@ -1,13 +1,74 @@
 import os
 from ctypes import *
 
+from datetime import datetime
+class Time(Structure):
+    _fields_ = [
+        ("time", c_longlong),
+        ("granularity", c_longlong),
+    ]
+
+    def __init__(self, time, granularity):
+        if isinstance(time, str):
+            time = int(datetime.strptime(time, "%Y-%m-%d %H:%M:%S").timestamp())
+        elif isinstance(time, datetime):
+            time = int(time.timestamp())
+
+        super(Time, self).__init__(time, granularity)
+
+    def __add__(self, other):
+        if isinstance(other, int):
+            return Time(self.time + self.granularity * other, self.granularity)
+        return None
+
+    def dt(self):
+        return datetime.fromtimestamp(self.time)
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        if self.granularity != other.granularity:
+            return False
+        return self.time == other.time
+
+    def __lt__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        if self.granularity != other.granularity:
+            return False
+        return self.time < other.time
+
+    def __le__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        if self.granularity != other.granularity:
+            return False
+        return self.time <= other.time
+
+    def __repr__(self):
+        return "({}, {})".format(self.dt().strftime("%Y-%m-%d %H:%M:%S"), self.granularity)
+
+    def range_to(self, end):
+        def gen():
+            t = self
+            while t < end:
+                yield t
+                t += 1
+        return gen()
+
 class SimplePosition(c_int):
     pass
 
 class CrossState(c_int):
     pass
 
+class ZoneId(c_int):
+    pass
+
 class TransactionId(c_longlong):
+    pass
+
+class TickId(c_longlong):
     pass
 
 type_map = {
@@ -16,6 +77,9 @@ type_map = {
     SimplePosition: "simple_position",
     CrossState: "cross",
     TransactionId: "tid",
+    TickId: "tick_id",
+    Time: "time",
+    ZoneId: "zone_id",
 }
 
 def default(T):
@@ -25,6 +89,7 @@ def default(T):
         Option(c_double): Option(c_double).none,
         CrossState: 0,
         SimplePosition: 0,
+        ZoneId: 0,
         # MaybeInRange(c_int): MaybeInRange(c_int).none, 
         # MaybeInRange(c_double): MaybeInRange(c_double).none, 
         # MaybeInRange(Option(c_double)): MaybeInRange(Option(c_double)).none, 
@@ -235,65 +300,6 @@ def not_fixed(T):
     return MaybeValue(T).not_fixed()
 
 
-
-from datetime import datetime
-class Time(Structure):
-    _fields_ = [
-        ("time", c_longlong),
-        ("granularity", c_longlong),
-    ]
-
-    def __init__(self, time, granularity):
-        if isinstance(time, str):
-            time = int(datetime.strptime(time, "%Y-%m-%d %H:%M:%S").timestamp())
-        elif isinstance(time, datetime):
-            time = int(time.timestamp())
-
-        super(Time, self).__init__(time, granularity)
-
-    def __add__(self, other):
-        if isinstance(other, int):
-            return Time(self.time + self.granularity * other, self.granularity)
-        return None
-
-    def dt(self):
-        return datetime.fromtimestamp(self.time)
-
-    def __eq__(self, other):
-        if not isinstance(other, type(self)):
-            return False
-        if self.granularity != other.granularity:
-            return False
-        return self.time == other.time
-
-    def __lt__(self, other):
-        if not isinstance(other, type(self)):
-            return False
-        if self.granularity != other.granularity:
-            return False
-        return self.time < other.time
-
-    def __le__(self, other):
-        if not isinstance(other, type(self)):
-            return False
-        if self.granularity != other.granularity:
-            return False
-        return self.time <= other.time
-
-    def __repr__(self):
-        return "({}, {})".format(self.dt().strftime("%Y-%m-%d %H:%M:%S"), self.granularity)
-
-    def range_to(self, end):
-        def gen():
-            t = self
-            while t < end:
-                yield t
-                t += 1
-        return gen()
-
-type_map[Time] = "time"
-
-
 class Ptr(Structure):
     _fields_ = [
         ("b_ptr", c_void_p),
@@ -308,6 +314,9 @@ class Indicator:
         [Time, Time, Option(c_double), Option(c_double)],
         [Time, Time, CrossState, c_int],
         [TransactionId, c_longlong, c_double, c_double],
+        [TickId, c_longlong, c_double, c_double],
+        [TickId, c_longlong, Time, Time],
+        [TickId, c_longlong, ZoneId, c_int],
     ]:
         get_func("indicator", "value", S1, V1).argtypes = [c_void_p, S2]
         get_func("indicator", "value", S1, V1).restype = MaybeValue(V2)
@@ -326,6 +335,8 @@ class Vec(Indicator):
     for S1, S2, V1, V2 in [
         [Time, Time, c_double, c_double],
         [TransactionId, c_longlong, c_double, c_double],
+        [TickId, c_longlong, c_double, c_double],
+        [TickId, c_longlong, Time, Time],
     ]:
         get_func(_cls_, "new", S1, V1).argtypes = [S2, POINTER(V2), c_int]
         get_func(_cls_, "new", S1, V1).restype = Ptr
@@ -504,6 +515,55 @@ class IterFunc:
             if v.is_fixed == 0 or v.value.is_in_range == 0:
                 break
         return self.vec.value(i)
+
+class TimeToTick(Indicator):
+    _cls_ = "tick"
+    for S1, S2, V1, V2 in [
+        [TickId, TickId, c_double, c_double],
+    ]:
+        get_func(_cls_, "new", S1, V1).argtypes = [c_void_p, c_void_p]
+        get_func(_cls_, "new", S1, V1).restype = Ptr
+        get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
+        get_func(_cls_, "destroy", S1, V1).restype = None
+
+    def __init__(self, S, V, values, time):
+        self._S = S
+        self._V = V
+        self._ptr = get_func(self._cls_, "new", self._S, self._V)(
+            values._ptr.f_ptr,
+            time._ptr.f_ptr
+        )
+
+class Zone(Indicator):
+    _cls_ = "zone"
+    for S1, S2, V1, V2 in [
+        [TickId, TickId, c_double, c_double],
+    ]:
+        get_func(_cls_, "new", S1, V1).argtypes = [c_void_p, POINTER(c_void_p),
+                                                   c_int, POINTER(c_void_p), c_int]
+        get_func(_cls_, "new", S1, V1).restype = Ptr
+        get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
+        get_func(_cls_, "destroy", S1, V1).restype = None
+
+    def __init__(self, S, V, price, positive_lines, negative_lines):
+        self._S = S
+        self._V = V
+        positive_length = len(positive_lines)
+        positive_line_ptrs = [i._ptr.f_ptr for i in positive_lines]
+        p_lines_ptr = POINTER(c_void_p)((c_void_p * positive_length)(*positive_line_ptrs))
+        negative_length = len(negative_lines)
+        negative_line_ptrs = [i._ptr.f_ptr for i in negative_lines]
+        n_lines_ptr = POINTER(c_void_p)((c_void_p * negative_length)(*negative_line_ptrs))
+        self._ptr = get_func(self._cls_, "new", self._S, self._V)(
+            price._ptr.f_ptr,
+            p_lines_ptr,
+            positive_length,
+            n_lines_ptr,
+            negative_length,
+        )
+
+    def value(self, i):
+        return get_func("indicator", "value", self._S, ZoneId)(self._ptr.f_ptr, i)
 
 # # class ViaIterMap(Indicator):
 # #     _cls_ = "via_iter"

@@ -757,6 +757,8 @@ pub mod ffi {
         indicator_value_time_option_f64
     );
     define_value!(TransactionId, i64, f64, f64, indicator_value_tid_f64);
+    define_value!(TickId, i64, f64, f64, indicator_value_tick_id_f64);
+    define_value!(TickId, i64, GTime<Var>, CTime, indicator_value_tick_id_time);
 
     use cross::ffi::*;
     use cross::*;
@@ -774,6 +776,27 @@ pub mod ffi {
         CCrossState,
         indicator_value_tid_cross
     );
+
+    // impl Into<i32> for ZoneId {
+    //     fn into(self) -> i32 {
+    //         self.0
+    //     }
+    // }
+
+    // impl From<i32> for ZoneId {
+    //     fn from(i: i32) -> Self {
+    //         ZoneId(i)
+    //     }
+    // }
+
+    impl From<ZoneId> for i32 {
+        fn from(z: ZoneId) -> Self {
+            z.0
+        }
+    }
+
+    use crate::strategy::busena::zone::*;
+    define_value!(TickId, i64, ZoneId, i32, indicator_value_tick_id_zone_id);
 
     // use crate::position::ffi::*;
     // use crate::position::*;
@@ -859,8 +882,8 @@ pub mod slope;
 pub mod sma;
 pub mod storage;
 pub mod stream;
+pub mod tick;
 pub mod trade;
 pub mod transaction;
 pub mod vec;
-pub mod tick;
 // pub mod trailing_stop;

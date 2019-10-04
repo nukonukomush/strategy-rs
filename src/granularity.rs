@@ -43,7 +43,7 @@ define_static_granularity!(D1, 60 * 60 * 24, |t| {
 pub mod ffi {
     use super::*;
 
-    #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash)]
+    #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone, Copy, Hash, Default)]
     pub struct Var(i64);
     impl Var {
         pub fn new(d: i64) -> Self {

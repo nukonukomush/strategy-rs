@@ -165,16 +165,24 @@ pub mod ffi {
     }
 
     #[repr(C)]
-    #[derive(Clone, Copy, PartialEq, Eq)]
+    #[derive(Clone, Copy, PartialEq, Eq, Default)]
     pub struct CTime {
         time: i64,
         granularity: Var,
     }
 
-    use std::convert::Into;
     impl Into<GTime<Var>> for CTime {
         fn into(self) -> GTime<Var> {
             GTime::new(self.time, self.granularity)
+        }
+    }
+
+    impl From<GTime<Var>> for CTime {
+        fn from(t: GTime<Var>) -> Self {
+            Self {
+                time: t.timestamp(),
+                granularity: t.granularity(),
+            }
         }
     }
 }

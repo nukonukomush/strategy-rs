@@ -214,6 +214,54 @@ def test_iter_func():
     result = [f.value(offset + i) for i in range(0, 6)]
     assert result == expect
 
+def test_tick():
+    offset = ffi.Time(0, 5)
+    source = [1, 2, 3, 4, 5]
+    t = [
+        offset + 0,
+        offset + 1,
+        offset + 1,
+        offset + 3,
+        offset + 4,
+        offset + 4,
+    ]
+    expect = [
+        ffi.value(c_double, 1),
+        ffi.value(c_double, 2),
+        ffi.value(c_double, 2),
+        ffi.value(c_double, 4),
+        ffi.value(c_double, 5),
+        ffi.value(c_double, 5),
+    ]
+
+    values = ffi.Vec(ffi.Time, c_double, source, offset)
+    time = ffi.Vec(ffi.TickId, ffi.Time, t, ffi.TickId(0))
+    time_to_tick = ffi.TimeToTick(ffi.TickId, c_double, values, time)
+    result = [time_to_tick.value(ffi.TickId(i)) for i in range(0, 6)]
+
+    assert result == expect
+
+def test_zone():
+    offset = ffi.TickId(0)
+    expect = [
+        ffi.value(c_int, 0),
+        ffi.value(c_int, 1),
+        ffi.value(c_int, -1),
+        ffi.value(c_int, 2),
+        ffi.value(c_int, -2),
+    ]
+
+    price = ffi.Vec(ffi.TickId, c_double, [1.0, 2.15, 2.85, 4.3, 4.7], offset)
+    env_p2 = ffi.Vec(ffi.TickId, c_double, [1.2, 2.2, 3.2, 4.2, 5.2], offset)
+    env_p1 = ffi.Vec(ffi.TickId, c_double, [1.1, 2.1, 3.1, 4.1, 5.1], offset)
+    env_m1 = ffi.Vec(ffi.TickId, c_double, [0.9, 1.9, 2.9, 3.9, 4.9], offset)
+    env_m2 = ffi.Vec(ffi.TickId, c_double, [0.8, 1.8, 2.8, 3.8, 4.8], offset)
+    zone = ffi.Zone(ffi.TickId, c_double, price, [env_p1, env_p2], [env_m1, env_m2])
+    result = [zone.value(ffi.TickId(i)) for i in range(0, 5)]
+
+    print(result)
+
+    assert result == expect
 
 # # # def test_trailing_stop():
 # # #     offset = ffi.Time("2019-01-01 00:00:00", 60)

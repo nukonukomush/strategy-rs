@@ -118,12 +118,18 @@ mod ffi {
 
     define_new!(GTime<Var>, CTime, f64, f64, vec_new_time_f64);
     define_new!(TransactionId, i64, f64, f64, vec_new_tid_f64);
+    define_new!(TickId, i64, f64, f64, vec_new_tick_id_f64);
+    define_new!(TickId, i64, GTime<Var>, CTime, vec_new_tick_id_time);
 
     define_destroy!(IPtr<GTime<Var>, f64>, vec_destroy_time_f64);
     define_destroy!(IPtr<TransactionId, f64>, vec_destroy_tid_f64);
+    define_destroy!(IPtr<TickId, f64>, vec_destroy_tick_id_f64);
+    define_destroy!(IPtr<TickId, GTime<Var>>, vec_destroy_tick_id_time);
 
     define_add!(IPtr<GTime<Var>, f64>, f64, vec_add_time_f64);
     define_add!(IPtr<TransactionId, f64>, f64, vec_add_tid_f64);
+    define_add!(IPtr<TickId, f64>, f64, vec_add_tick_id_f64);
+    define_add!(IPtr<TickId, GTime<Var>>, CTime, vec_add_tick_id_time);
 }
 
 #[cfg(test)]
