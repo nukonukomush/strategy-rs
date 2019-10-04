@@ -263,6 +263,28 @@ def test_zone():
 
     assert result == expect
 
+def test_ema():
+    offset = ffi.Time(0, 5)
+    expect = [
+        ffi.out_of_range(c_double),
+        ffi.out_of_range(c_double),
+        ffi.out_of_range(c_double),
+        ffi.out_of_range(c_double),
+        ffi.out_of_range(c_double),
+        ffi.value(c_double, 2.0),
+        ffi.value(c_double, 2.5),
+        ffi.value(c_double, 2.75),
+        ffi.value(c_double, 2.875),
+        ffi.value(c_double, 2.9375),
+    ]
+
+    source = ffi.Vec(ffi.Time, c_double, [1, 1, 1, 1, 1, 3, 3, 3, 3, 3], offset)
+    sma = ffi.Sma(ffi.Time, c_double, source, period=2)
+    ema = ffi.Ema(ffi.Time, c_double, source, sma, n_period=3, accuracy=0.9, capacity=100)
+    result = [ema.value(offset + i) for i in range(0, 10)]
+
+    assert result == expect
+
 # # # def test_trailing_stop():
 # # #     offset = ffi.Time("2019-01-01 00:00:00", 60)
 # # #     source_price = [1, 2, -3, 8, 3]

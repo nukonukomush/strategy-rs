@@ -565,6 +565,44 @@ class Zone(Indicator):
     def value(self, i):
         return get_func("indicator", "value", self._S, ZoneId)(self._ptr.f_ptr, i)
 
+class Envelope(Indicator):
+    _cls_ = "envelope"
+    for S1, S2, V1, V2 in [
+        [Time, Time, c_double, c_double],
+        [TickId, c_longlong, c_double, c_double],
+    ]:
+        get_func(_cls_, "new", S1, V1).argtypes = [c_void_p, c_double]
+        get_func(_cls_, "new", S1, V1).restype = Ptr
+        get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
+        get_func(_cls_, "destroy", S1, V1).restype = None
+
+    def __init__(self, S, V, source, deviation_in_percents):
+        self._S = S
+        self._V = V
+        self._ptr = get_func(self._cls_, "new", self._S, self._V)(source._ptr.f_ptr, deviation_in_percents)
+
+class Ema(Indicator):
+    _cls_ = "ema"
+    for S1, S2, V1, V2 in [
+        [Time, Time, c_double, c_double],
+        [TickId, c_longlong, c_double, c_double],
+    ]:
+        get_func(_cls_, "new", S1, V1).argtypes = [c_void_p, c_void_p, c_int, c_double, c_int]
+        get_func(_cls_, "new", S1, V1).restype = Ptr
+        get_func(_cls_, "destroy", S1, V1).argtypes = [Ptr]
+        get_func(_cls_, "destroy", S1, V1).restype = None
+
+    def __init__(self, S, V, source, first, n_period, accuracy, capacity):
+        self._S = S
+        self._V = V
+        self._ptr = get_func(self._cls_, "new", self._S, self._V)(
+            source._ptr.f_ptr,
+            first._ptr.f_ptr,
+            n_period,
+            accuracy,
+            capacity,
+        )
+
 # # class ViaIterMap(Indicator):
 # #     _cls_ = "via_iter"
 # #     for T in [
