@@ -69,7 +69,10 @@ class TransactionId(c_longlong):
     pass
 
 class TickId(c_longlong):
-    pass
+    def __repr__(self):
+        # return "TickId({})".format(self.super().__repr__())
+        return f'TickId({self.value})'
+
 
 type_map = {
     c_int: "i32",
