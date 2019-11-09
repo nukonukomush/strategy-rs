@@ -18,6 +18,8 @@ pub trait Window<S, V> {
     fn rfold<B, F>(self, init: B, f: F) -> MaybeValue<B>
     where
         F: FnMut(V, B) -> B;
+
+    fn value(&self, index: usize) -> MaybeValue<V>;
 }
 
 pub struct FixedSizeWindow<'a, S, I: 'a> {
@@ -35,6 +37,25 @@ impl<'a, S, I> FixedSizeWindow<'a, S, I> {
         }
     }
 }
+
+// impl<'a, S, I> std::ops::Index<usize> for FixedSizeWindow<'a, S, I>
+// where
+//     S: Sequence,
+//     I: FuncIndicator<Seq = S>,
+// {
+//     type Output = MaybeValue<I::Val>;
+//     fn index(&self, index: usize) -> &Self::Output {
+//         debug_assert!(self.size > index);
+//         &self.source.value(self.offset + index as i64)
+//     }
+// }
+
+// impl<'a, S, I> Window<S, f64> for FixedSizeWindow<'a, S, I>
+// where
+//     S: Sequence,
+//     I: FuncIndicator<Seq = S, Val = f64>,
+// {
+// }
 
 impl<'a, S, I> Window<S, f64> for FixedSizeWindow<'a, S, I>
 where
@@ -83,6 +104,11 @@ where
             i = i + 1;
         }
         Fixed(InRange(sum))
+    }
+
+    fn value(&self, index: usize) -> MaybeValue<f64> {
+        debug_assert!(self.size > index);
+        self.source.value(self.offset + index as i64)
     }
 }
 

@@ -498,6 +498,47 @@ where
     }
 }
 
+pub struct ClosureIndicator<S, V, F>
+// where
+//     F: FnMut(S) -> MaybeValue<V>,
+{
+    closure: F,
+    p1: std::marker::PhantomData<S>,
+    p2: std::marker::PhantomData<V>,
+}
+
+impl<S, V, F> Indicator for ClosureIndicator<S, V, F>
+where
+    S: Sequence,
+    V: std::fmt::Debug,
+    F: FnMut(S) -> MaybeValue<V>,
+{
+    type Seq = S;
+    type Val = V;
+}
+
+impl<S, V, F> ClosureIndicator<S, V, F>
+{
+    pub fn new(closure: F) -> Self {
+        Self {
+            closure: closure,
+            p1: std::marker::PhantomData,
+            p2: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<S, V, F> FuncIndicator for ClosureIndicator<S, V, F>
+where
+    S: Sequence,
+    V: std::fmt::Debug,
+    F: Fn(S) -> MaybeValue<V>,
+{
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        (self.closure)(seq)
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;

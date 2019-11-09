@@ -10,6 +10,32 @@ use MaybeInRange::*;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct ZoneId(pub i32);
 
+impl ZoneId {
+    pub fn is_outer_than(&self, other: Self) -> bool {
+        if other.0 == 0 {
+            self.0 != 0
+        } else if other.0 > 0 {
+            self.0 > other.0
+        } else if other.0 < 0 {
+            self.0 < other.0
+        } else {
+            panic!("");
+        }
+    }
+
+    pub fn is_inverse(&self, up_down: UpDown) -> bool {
+        if self.0 == 0 {
+            false
+        } else if self.0 > 0 {
+            up_down == UpDown::Down
+        } else if self.0 < 0 {
+            up_down == UpDown::Up
+        } else {
+            panic!("");
+        }
+    }
+}
+
 pub struct Zone<I1, I2> {
     price: I1,
     positive_lines: Vec<I2>,
@@ -91,8 +117,8 @@ where
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UpDown {
+    Neutral,
     Up,
-    Eq,
     Down,
 }
 
@@ -109,7 +135,7 @@ where
         } else if diff < 0.0 {
             UpDown::Down
         } else {
-            UpDown::Eq
+            UpDown::Neutral
         };
         Fixed(InRange(ud))
     })
@@ -277,7 +303,7 @@ mod tests {
             Fixed(InRange(Up)),
             Fixed(InRange(Up)),
             Fixed(InRange(Up)),
-            Fixed(InRange(Eq)),
+            Fixed(InRange(Neutral)),
             Fixed(InRange(Down)),
         ];
 
