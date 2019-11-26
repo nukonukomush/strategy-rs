@@ -517,8 +517,7 @@ where
     type Val = V;
 }
 
-impl<S, V, F> ClosureIndicator<S, V, F>
-{
+impl<S, V, F> ClosureIndicator<S, V, F> {
     pub fn new(closure: F) -> Self {
         Self {
             closure: closure,

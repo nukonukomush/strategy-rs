@@ -23,6 +23,10 @@ impl ZoneId {
         }
     }
 
+    pub fn is_crossed_zero(&self, other: Self) -> bool {
+        self.0 * other.0 < 0
+    }
+
     pub fn is_inverse(&self, up_down: UpDown) -> bool {
         if self.0 == 0 {
             false
@@ -111,6 +115,82 @@ where
             (Some(z), None) => Fixed(InRange(z)),
             (None, Some(z)) => Fixed(InRange(z)),
             (None, None) => Fixed(InRange(ZoneId(0))),
+        }
+    }
+}
+
+use crate::library::lru_cache::LRUCache;
+pub struct OutermostZone<S, I> {
+    zone: I,
+    cache: RefCell<LRUCache<S, ZoneId>>,
+}
+
+impl<S, I> OutermostZone<S, I>
+where
+    S: Sequence,
+{
+    pub fn new(zone: I, capacity: usize) -> Self {
+        Self {
+            zone: zone,
+            cache: RefCell::new(LRUCache::new(capacity)),
+        }
+    }
+
+    fn get_cache(&self, seq: S) -> Option<ZoneId> {
+        self.cache.borrow_mut().get(&seq).map(|v| v.clone())
+    }
+
+    fn set_cache(&self, seq: S, value: ZoneId) {
+        self.cache.borrow_mut().insert(seq, value);
+    }
+}
+
+impl<S, I> Indicator for OutermostZone<S, I>
+where
+    S: Sequence,
+    I: Indicator<Seq = S, Val = ZoneId>,
+{
+    type Seq = S;
+    type Val = ZoneId;
+}
+
+impl<S, I> FuncIndicator for OutermostZone<S, I>
+where
+    S: Sequence,
+    I: FuncIndicator<Seq = S, Val = ZoneId>,
+{
+    fn value(&self, seq: Self::Seq) -> MaybeValue<Self::Val> {
+        let cache = self.get_cache(seq);
+        match cache {
+            Some(outermost_zone) => return Fixed(InRange(outermost_zone)),
+            None => (),
+        }
+
+        let zone = try_value!(self.zone.value(seq));
+        if zone == ZoneId(0) {
+            // ゾーン 0 ならリセット
+            self.set_cache(seq, ZoneId(0));
+            Fixed(InRange(ZoneId(0)))
+        } else {
+            match self.value(seq - 1) {
+                Fixed(InRange(prev_outermost_zone)) => {
+                    if zone.is_crossed_zero(prev_outermost_zone) {
+                        // 0 をまたいだなら更新
+                        self.set_cache(seq, zone);
+                        Fixed(InRange(zone))
+                    } else if zone.is_outer_than(prev_outermost_zone) {
+                        // 外側ゾーンに移行したなら更新
+                        self.set_cache(seq, zone);
+                        Fixed(InRange(zone))
+                    } else {
+                        Fixed(InRange(prev_outermost_zone))
+                    }
+                }
+                _ => {
+                    self.set_cache(seq, zone);
+                    Fixed(InRange(zone))
+                }
+            }
         }
     }
 }
@@ -345,4 +425,37 @@ mod tests {
     //     let result = (0..10).map(|i| hige.value(offset + i)).collect::<Vec<_>>();
     //     assert_eq!(result, expect);
     // }
+
+    #[test]
+    fn test_outermost_zone() {
+        let offset = Time::<S5>::new(0);
+        let source = vec![
+            ZoneId(0),
+            ZoneId(1),
+            ZoneId(0),
+            ZoneId(2),
+            ZoneId(1),
+            ZoneId(2),
+            ZoneId(3),
+            ZoneId(-4),
+        ];
+        let expect = vec![
+            Fixed(InRange(ZoneId(0))),
+            Fixed(InRange(ZoneId(1))),
+            Fixed(InRange(ZoneId(0))),
+            Fixed(InRange(ZoneId(2))),
+            Fixed(InRange(ZoneId(2))),
+            Fixed(InRange(ZoneId(2))),
+            Fixed(InRange(ZoneId(3))),
+            Fixed(InRange(ZoneId(-4))),
+        ];
+
+        let source = VecIndicator::new(offset, source);
+        let outermost_zone = OutermostZone::new(source, 20);
+
+        let result = (0..8)
+            .map(|i| outermost_zone.value(offset + i))
+            .collect::<Vec<_>>();
+        assert_eq!(result, expect);
+    }
 }
